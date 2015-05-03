@@ -1,6 +1,7 @@
 %define FLAGS 3
 %define MAGIC 0x1BADB002
 %define CHECKSUM -(MAGIC+FLAGS)
+%include "io.inc"
 
 section multiboot
 align 4
@@ -16,33 +17,16 @@ _start:
 	jnz .FatalError
 	mov dword[MultibootAddr], ebx
 
+	call _clrScreen
 
-	mov edi, 0xb8000	
-	mov eax, 0x0f200f20
-	mov ecx, 1024
-	rep stosd
-
-	mov edi, 0xb8000
 	mov esi, Hellau
+	call _printString
 	
-	.forever:
-		mov al, byte[ esi ]
-		or al, al
-		jz .done
-		mov byte [edi], al
-		add esi, 1
-		add edi, 2
-		jmp .forever
-			
-	.done:
-		jmp $
-
 	jmp $
-
 	.FatalError:
-		mov edi, 0xb8000
 		mov esi, NoMultiboot
-	  	jmp .forever
+		call _printString
+		jmp $
 
 NoMultiboot db 'Fatal error the kernel wasnt loaded by a multiboot bootloader!',0
 MultibootAddr dd 0
