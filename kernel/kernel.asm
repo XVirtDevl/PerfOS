@@ -7,12 +7,16 @@ align 4
 my_magic dd MAGIC
 dd FLAGS
 dd CHECKSUM
-db 'Hallo Welt wie gehts?',0
 
 
 section .text
 global _start
 _start:
+	cmp eax, 0x2BADB002
+	jnz .FatalError
+	mov dword[MultibootAddr], ebx
+
+
 	mov edi, 0xb8000	
 	mov eax, 0x0f200f20
 	mov ecx, 1024
@@ -32,5 +36,14 @@ _start:
 			
 	.done:
 		jmp $
+
 	jmp $
+
+	.FatalError:
+		mov edi, 0xb8000
+		mov esi, NoMultiboot
+	  	jmp .forever
+
+NoMultiboot db 'Fatal error the kernel wasnt loaded by a multiboot bootloader!',0
+MultibootAddr dd 0
 Hellau db 'Just before this?',0
