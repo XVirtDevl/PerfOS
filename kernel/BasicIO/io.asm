@@ -63,5 +63,77 @@ _setColor:
 	mov byte[ScreenAttributes], al
 	ret
 
+;eax = Value to convert, edi = destination string to put the letters in
+global _inttostr
+_inttostr:
+	push edx
+	push ebx
+	push edi
+
+	mov ebx, 10
+	xor edx, edx
+	.StartConvert:
+		div ebx
+		add dl, 48
+		mov byte[ edi ], dl
+		add edi, 1
+		xor edx, edx
+		
+		or eax, eax
+		jnz .StartConvert
+
+		mov byte[ edi ], 0
+		mov ebx, edi
+		sub ebx, 1
+		pop edi
+	.Switch:
+		mov dl, byte[ebx]
+		xchg byte[edi], dl
+		mov byte[ebx],dl
+		sub ebx, 1
+		add edi, 1
+		cmp ebx, edi
+		ja .Switch
+
+		pop ebx
+		pop edx
+		ret
+
+;edi = destination string address, eax = value
+global _inttostrhex
+Cond dw 48
+_inttostrhex:
+	push ecx
+	mov word[edi], '0x'
+	add edi, 2
+
+	mov cl, 28
+
+	.outputLoop:
+		push eax
+		shr eax, cl
+		mov bx, 55
+		and al, 0xF
+
+		cmp al, 10
+		cmovb bx, word[Cond]
+
+		add ax, bx
+		
+
+	
+	.check:
+		mov byte[ edi ], al
+		add edi, 1
+		pop eax
+		sub cl, 4
+		jns .outputLoop
+		mov byte[ edi ], 0		
+		
+		pop ecx
+		ret
+
+
+		
 ScreenCursor dd 0xb8000
 ScreenAttributes db 0x0F

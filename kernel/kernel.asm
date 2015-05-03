@@ -22,6 +22,14 @@ _start:
 	mov esi, Hellau
 	call _printString
 
+	mov al, 0xF4
+	call _setColor
+
+
+	mov eax, 0xF7D8
+	mov edi, Hellau
+	call _inttostrhex
+
 	mov esi, Hellau
 	call _printString
 	
