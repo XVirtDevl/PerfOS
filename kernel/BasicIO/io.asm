@@ -7,15 +7,35 @@ _printString:
 
 	.print:
 		mov al, byte[esi]
+		
 		or al, al
 		jz .done
+
+		cmp al, 0x13
+		jz .linebreak
 
 		mov word[edi], ax
 		add esi, 1
 		add edi, 2
 		jmp .print
 
+	.linebreak:
+		mov eax, edi
+		sub edi, 0xb8000
+
+	.determinate80s:	
+		sub edi, 160
+		ja .determinate80s
+		not edi
+		add edi, 1
+		add edi, eax
+		mov ah, byte[ ScreenAttributes ]
+
+		add esi, 1
+		jmp .print
+		
 	.done:
+		mov dword[ ScreenCursor ], edi
 		pop eax
 		pop edi
 		ret
