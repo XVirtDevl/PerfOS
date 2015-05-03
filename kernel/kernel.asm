@@ -32,6 +32,11 @@ _start:
 
 	mov esi, Hellau
 	call _printString
+
+	mov esi, prtf
+	mov eax, 100
+	push eax
+	call _printf
 	
 	jmp $
 	.FatalError:
@@ -42,3 +47,4 @@ _start:
 NoMultiboot db 'Fatal error the kernel wasnt loaded by a multiboot bootloader!',0
 MultibootAddr dd 0
 Hellau db 'Just before this?',0x13,0
+prtf db 0x13,'Hello %d okay',0

@@ -134,6 +134,83 @@ _inttostrhex:
 		ret
 
 
+global _printf
+;esi basic string, further arguments are on the stack
+_printf:
+	push edi
+	push eax
+	push ecx
+	mov edi, dword[ ScreenCursor ]
+	mov ah, byte[ ScreenAttributes ]	
+	xor ecx, ecx
+
+	.print:
+		mov al, byte[ esi ]	
+		
+		or al, al
+		jz .done
+		
+		cmp al, 0x13
+		jz .linebreak
+
+		cmp al, '%'
+		jz .format
+
+		mov word[ edi ], ax
+
+		add esi, 1
+		add edi, 2
+		jmp .print
+
+	.linebreak:
+		mov eax, edi
+		
+		sub edi, 0xb8000
+	.check160s:
+		sub edi, 160
+		ja .check160s
+
+		not edi
+		add edi, 1
+		add edi, eax
+		mov ah, byte[ ScreenAttributes ]
+		add esi, 1
+		jmp .print
+
+	.format:
+		add esi, 1
+		
+		mov al, byte[ esi ]
+		add esi, 1
+		cmp al, 'd'
+		jz .formatInteger
+
+		add esi, 1
+		jmp .print
+
+		.formatInteger:
+			mov dword[ ScreenCursor ], edi
+			mov eax, dword[ esp+16 ]	
+			push esi
+			mov edi, BufferForFormat
+			call _inttostr
+			mov esi, BufferForFormat
+			call _printString
+			add ecx, 4
+			mov edi, dword[ ScreenCursor ]
+			mov ah, byte[ ScreenAttributes ]
+			pop esi
+			jmp .print
+
+	.done:
+		mov dword[ ScreenCursor ], edi
+		pop ecx
+		pop eax
+		pop edi
+		ret
+
+
 		
 ScreenCursor dd 0xb8000
 ScreenAttributes db 0x0F
+BufferForFormat dq 0,0,0
