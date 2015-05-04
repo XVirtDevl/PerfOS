@@ -47,13 +47,33 @@ Video &Video::operator<<(const char *str)
 	}
 }
 
-void Video::SetForegroundAttributes( ConsoleColors &newCol )
+#define MAXINTLENGTH 10
+Video &Video::operator<<(unsigned int val )
+{
+	char outputBuffer[MAXINTLENGTH+1];
+	outputBuffer[MAXINTLENGTH] = '\0';
+
+	int i;
+	for( i = MAXINTLENGTH-1;;i--)
+	{
+		outputBuffer[i] = val%10+48;
+		val = val/10;
+		if( val == 0 )
+		{
+			break;
+		}
+	}
+	
+	return *this<<&outputBuffer[i];
+}
+
+void Video::SetForegroundAttributes( ConsoleColors newCol )
 {
 	m_textAttributes&=0xF0;
 	m_textAttributes|=newCol;
 }
 
-void Video::SetBackgroundAttributes( ConsoleColors &newCol )
+void Video::SetBackgroundAttributes( ConsoleColors newCol )
 {
 	m_textAttributes &= 0xF;
 	m_textAttributes |= (newCol<<4);

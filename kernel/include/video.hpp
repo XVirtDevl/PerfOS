@@ -38,9 +38,10 @@ class Video
 	public:
 		static Video *GetInstance();
 		void ClearScreen();
-		void SetForegroundAttributes( ConsoleColors &newCol );
-		void SetBackgroundAttributes( ConsoleColors &newCol );
+		void SetForegroundAttributes( ConsoleColors newCol );
+		void SetBackgroundAttributes( ConsoleColors newCol );
 		Video &operator<<(const char *str);
+		Video &operator<<(unsigned int val);
 };
 
 #endif

@@ -8,7 +8,9 @@ int main()
 	
 	vid->ClearScreen();
 
-	*vid<<"Hallo Welt!\n Next Line!";
-
+	*vid<<"Hallo Welt!\n Next Line!"<<102340;
+	vid->SetForegroundAttributes( LIGHTBLUE );
+	*vid<<"\nRed Color";
+	
 	return 0;
 }
