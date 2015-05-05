@@ -13,7 +13,7 @@ gdt_limit dw 40
 gdt_base dd GDT_BASE
 
 
-extern main
+extern LongMode
 section .text
 global _start
 _start:
@@ -85,9 +85,50 @@ align 8
 		mov fs, ax
 		mov gs, ax
 		mov ss, ax
+		
+		mov eax, cr4
+		or eax, 0x40
+		mov cr4, eax	; Set PAE-Bit 
+
+		call InitialisePaging
 	
-		push ebx
-		call main
-		jmp $
+		mov ecx, 0xC0000080
+		rdmsr
+		or eax, 0x100	;Set Long Mode Bit
+		wrmsr
+
+		mov eax, cr0	
+		or eax, 0x80000000	;Activate Paging
+		mov cr0, eax
+		
+		jmp 0x18:0x200000
+
+InitialisePaging:
+		mov edi, 0x300000
+		mov eax, 0x301013
+		xor ebx, ebx
+	
+		mov dword[ edi ], eax
+		mov dword[ edi + 4 ], ebx
+		
+		add edi, 0x1000
+		add eax, 0x1000
+		mov dword[ edi ], eax
+		mov dword[ edi + 4 ], ebx
+
+		add edi, 0x1000
+		mov eax, 0x93
+		mov ecx, 512
+
+		.Map:
+			mov dword[ edi ], eax
+			mov dword[ edi + 4 ], ebx
+			add eax, 0x200000
+			sub ecx, 1
+			jnz .Map
+
+		mov eax, 0x300000
+		mov cr3, eax
+		ret				;Identity Mapped First GB
 
 NoLongModeMsg db 'Long mode is not available the OS can not boot please restart the PC', 0

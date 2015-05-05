@@ -39,6 +39,12 @@ SECTIONS
 		*(.bss)
 	}
 
+	. = 2M;
+	.text BLOCK(4K) : ALIGN(4K)
+	{
+		*(longmode)
+	}
+
 	
 }
 
