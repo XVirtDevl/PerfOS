@@ -12,7 +12,7 @@ dd CHECKSUM
 gdt_limit dw 40
 gdt_base dd GDT_BASE
 
-[BITS 32]
+
 section .text
 global _start
 _start:
@@ -129,9 +129,9 @@ InitialisePaging:
 		mov eax, 0x300000
 		mov cr3, eax
 		ret				;Identity Mapped First GB
-[BITS 64]
+
+align 8
 LongMode:
-	mov rax, 0xFF0Ff0f0f0ffaaa0
 	mov ax, 0x20
 	mov ds, ax
 	mov es, ax
