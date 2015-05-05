@@ -9,9 +9,6 @@ dd FLAGS
 dd CHECKSUM
 
 %define GDT_BASE 0
-gdt_limit dw 40
-gdt_base dd GDT_BASE
-
 [BITS 32]
 section .text
 global _start
@@ -21,7 +18,6 @@ _start:
 	and edx, 0x20000000	;Check for the long mode support bit
 	test edx, edx
 	jz .fatal_error		;No long mode quit the OS
-
 	mov eax, 1		;Check for the PAE-Bit ( Physical Address Extension)
 	cpuid
 	and edx, 0x40
@@ -99,12 +95,18 @@ align 8
 		mov eax, cr0	
 		or eax, 0x80000000	;Activate Paging
 		mov cr0, eax
-		
+
 		jmp 0x18:LongMode
 
 InitialisePaging:
 		mov edi, 0x300000
-		mov eax, 0x301013
+		xor eax, eax
+		mov ecx, 0x1000
+		rep stosd
+		mov edi, 0x300000
+
+
+		mov eax, 0x30100F
 		xor ebx, ebx
 	
 		mov dword[ edi ], eax
@@ -116,12 +118,13 @@ InitialisePaging:
 		mov dword[ edi + 4 ], ebx
 
 		add edi, 0x1000
-		mov eax, 0x93
+		mov eax, 0x8B
 		mov ecx, 512
 
 		.Map:
 			mov dword[ edi ], eax
 			mov dword[ edi + 4 ], ebx
+			add edi, 8
 			add eax, 0x200000
 			sub ecx, 1
 			jnz .Map
@@ -129,9 +132,10 @@ InitialisePaging:
 		mov eax, 0x300000
 		mov cr3, eax
 		ret				;Identity Mapped First GB
+
 [BITS 64]
 LongMode:
-	mov rax, 0xFF0Ff0f0f0ffaaa0
+	jmp $
 	mov ax, 0x20
 	mov ds, ax
 	mov es, ax
@@ -139,6 +143,10 @@ LongMode:
 	mov ss, ax
 	mov gs, ax
 	jmp $
+
+gdt_limit dw 40
+gdt_base dd GDT_BASE
+
 
 
 NoLongModeMsg db 'Long mode is not available the OS can not boot please restart the PC', 0
