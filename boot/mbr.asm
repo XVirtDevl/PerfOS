@@ -11,7 +11,7 @@ mov sp, 0x9000
 
 mov ah, 0x42
 mov si, DAP_PACKET
-mov word[ DAP_PACKET.count ], 23
+mov word[ DAP_PACKET.count ], 24
 mov word[ DAP_PACKET.segment ], 0x1000
 mov dword[ DAP_PACKET.start_lba ], 1
 int 0x13
