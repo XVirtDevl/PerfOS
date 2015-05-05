@@ -7,7 +7,7 @@ align 4
 my_magic dd MAGIC
 dd FLAGS
 dd CHECKSUM
-
+extern main
 %define GDT_BASE 0
 [BITS 32]
 section .text
@@ -82,7 +82,7 @@ align 8
 		mov ss, ax
 		
 		mov eax, cr4
-		or eax, 0x40
+		or eax, 0x20
 		mov cr4, eax	; Set PAE-Bit 
 
 		call InitialisePaging
@@ -133,15 +133,16 @@ InitialisePaging:
 		mov cr3, eax
 		ret				;Identity Mapped First GB
 
+align 8
 [BITS 64]
 LongMode:
-	jmp $
 	mov ax, 0x20
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
 	mov ss, ax
 	mov gs, ax
+	call main
 	jmp $
 
 gdt_limit dw 40
