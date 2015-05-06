@@ -9,13 +9,22 @@ mov ss, ax
 
 mov sp, 0x9000
 
-mov ah, 0x42
-mov si, DAP_PACKET
-mov word[ DAP_PACKET.count ], 127
+mov byte[ BOOTDRIVE ], dl
+
+mov cx, word[ 0x7C00 + 500 ]
 mov word[ DAP_PACKET.segment ], 0x1000
 mov dword[ DAP_PACKET.start_lba ], 1
+
+.try_again:
+cmp cx, 64
+ja .multiple_load
+mov word[ DAP_PACKET.count ], cx
+mov si, DAP_PACKET
+mov ah, 0x42
+mov dl, byte[ BOOTDRIVE ]
 int 0x13
 jc fatal_error
+
 
 
 cli
@@ -34,9 +43,34 @@ or eax, 1
 mov cr0, eax
 jmp 0x8:ProtectedMode
 
+.multiple_load:
+	mov cx, 64
+	sub word[ 0x7C00 + 500 ], cx
+	
+	mov word[ DAP_PACKET.count ], cx
+	mov si, DAP_PACKET
+	mov ah, 0x42
+	mov dl, byte[ BOOTDRIVE ]
+	int 0x13
+	jc fatal_error
+
+	add word[ DAP_PACKET.offset ], 0x8000
+	jo .segment_up
+
+.back:
+	add dword[ DAP_PACKET.start_lba ], 64
+	
+	mov cx, word[ 0x7C00 + 500 ]
+	jmp .try_again
+
+.segment_up:
+	add word[ DAP_PACKET.segment ], 0x1000	
+	jmp .back
 
 fatal_error:
 	int 18h
+
+
 %define FILEADDR 0x10000
 [BITS 32]
 ProtectedMode:
@@ -87,6 +121,7 @@ ProtectedMode:
 
 
 
+BOOTDRIVE db 0
 align 8
 DAP_PACKET:
 	.signature db 0x10
