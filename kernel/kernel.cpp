@@ -1,17 +1,23 @@
 #include "video.hpp"
+#include "multiboot.hpp"
 
-extern "C" int main();
+extern "C" int kernel(multibootstruc *mbs);
 
-int main()
+int kernel(multibootstruc *mbs)
 {
 	Video *vid = Video::GetInstance();
-	
+
 	vid->ClearScreen();
 
 	*vid<<"Hallo Welt!\n Next Line!"<<102340;
-	vid->SetForegroundAttributes( LIGHTBLUE );
+	vid->SetForegroundAttributes( RED );
 	*vid<<"\nRed Color";
-	vid->SetBackgroundAttributes( WHITE );
-	*vid<<"Jolo own kernel!!!!";
+	if( mbs->flags & MEM_MAP_LENGTH_ADDR_PRESENT )
+		*vid<<"\nMemory Map present!";
+	else
+		*vid<<"\nFatal error no memory map available";
+
+	*vid<<(void*)mbs->memmap_addr;
+	
 	return 0;
 }

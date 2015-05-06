@@ -1,4 +1,19 @@
 %include "elf64.inc"
+
+struc multiboot
+	.flags resd 1
+	.mem_lower resd 1
+	.mem_upper resd 1
+	.bootdevice resd 1
+	.commandline resd 1
+	.mod_count resd 1
+	.mod_addr resd 1
+	.sys resd 1
+	.mmap_length resd 1
+	.mmap_addr resd 1
+endstruc
+%define MultibootStrucAddr 0x500
+%define mmap_addr 0x600
 org 0x7C00
 [BITS 16]
 _start:
@@ -25,7 +40,32 @@ mov dl, byte[ BOOTDRIVE ]
 int 0x13
 jc fatal_error
 
+mov dword[ MultibootStrucAddr + multiboot.flags ], 64
+mov dword[ MultibootStrucAddr + multiboot.mmap_addr ], 0x600
 
+mov eax, 0xE820
+mov edx, 0x534D4150 
+xor ebx, ebx
+mov ecx, 24
+mov di, mmap_addr
+clc
+int 0x15
+jc fatal_error
+
+.again_mmap:
+mov edx, 0xE820
+xchg eax, edx
+mov ecx, 24
+add di, 24
+int 0x15
+jc .next
+
+or ebx, ebx
+jnz .again_mmap
+
+.next:
+	sub di, mmap_addr
+	mov word[ MultibootStrucAddr + multiboot.mmap_length ], di
 
 cli
 lgdt[gdt_limit]
@@ -110,8 +150,9 @@ ProtectedMode:
 		jnz .loadAll
 
 
-	mov ebx, dword[ FILEADDR + elf64header.entry_point ]	
-	push ebx
+	mov eax, dword[ FILEADDR + elf64header.entry_point ]	
+	push eax
+	mov ebx, MultibootStrucAddr
 	ret
 
 	.no_elf:

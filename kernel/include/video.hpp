@@ -42,6 +42,7 @@ class Video
 		void SetBackgroundAttributes( ConsoleColors newCol );
 		Video &operator<<(const char *str);
 		Video &operator<<(unsigned int val);
+		Video &operator<<(void *ptr);
 };
 
 #endif

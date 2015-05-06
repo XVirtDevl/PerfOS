@@ -7,12 +7,14 @@ align 4
 my_magic dd MAGIC
 dd FLAGS
 dd CHECKSUM
-extern main
+extern kernel
 %define GDT_BASE 0
 [BITS 32]
 section .text
 global _start
 _start:
+	mov esp, 0x700000
+	mov dword[ multibootstruc ], ebx
 	mov eax, 0x80000001
 	cpuid
 	and edx, 0x20000000	;Check for the long mode support bit
@@ -142,12 +144,13 @@ LongMode:
 	mov fs, ax
 	mov ss, ax
 	mov gs, ax
-	call main
+
+	mov rdi, qword[ multibootstruc ]
+	call kernel
 	jmp $
 
 gdt_limit dw 40
 gdt_base dd GDT_BASE
-
-
+multibootstruc dq 0
 
 NoLongModeMsg db 'Long mode is not available the OS can not boot please restart the PC', 0

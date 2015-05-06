@@ -30,6 +30,33 @@ Video *Video::GetInstance()
 	return &m_inst;
 }
 
+Video &Video::operator<<(void *ptr)
+{
+	char x = 60;
+	m_currAddr[0] = (m_textAttributes<<8)|'0';
+	m_currAddr[1] = (m_textAttributes<<8)|'x';
+	m_currAddr+=2;
+
+	for(;;)
+	{
+		unsigned char val =  ((unsigned long)ptr>>x) & 0xF;
+
+		if( val > 9 )
+			val+=55;
+		else
+			val+=48;
+
+		*m_currAddr = (m_textAttributes<<8)|val;
+		m_currAddr++;
+		
+		x-=4;
+		if( x < 0 )
+			return *this;
+	}
+
+	return *this;
+}
+
 Video &Video::operator<<(const char *str)
 {
 	for(int i =0;;i++)
