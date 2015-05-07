@@ -145,8 +145,7 @@ LongMode:
 	mov ss, ax
 	mov gs, ax
 
-	mov rdi, qword[ multibootstruc ]
-	call kernel
+	
 	jmp $
 
 gdt_limit dw 40
