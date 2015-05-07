@@ -1,5 +1,6 @@
 #include "video.hpp"
 #include "multiboot.hpp"
+#include "memory.hpp"
 
 extern "C" int kernel(multibootstruc *mbs);
 
@@ -17,7 +18,8 @@ int kernel(multibootstruc *mbs)
 	else
 		*vid<<"\nFatal error no memory map available";
 
-	*vid<<(void*)mbs->memmap_addr;
+	PhysMemManager man1;
+	man1.Initialise( (MemMapEntry*)mbs->memmap_addr, mbs->memmap_length );
 	
 	return 0;
 }
