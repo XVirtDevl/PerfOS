@@ -189,19 +189,41 @@ LongMode:
 	call loadNewIDT
 
 	call clearScreen
+
+	mov al, 0x36
+	out 0x43, al
+
+	mov ax,11938
+	out 0x40, al
+	shr ax, 8
+	out 0x40, al
 	sti
 	jmp $
 
 align 8
 timer_tick:
-	add dword[Ticks], 1
+	mov eax, dword[ Ticks ]
+	add eax, 1
+	mov dword[ Ticks ], eax
+	
+	cmp eax, 100
+	jnz .end
+	
+	xor eax, eax
+	mov dword[ Ticks ], eax
+
+	mov eax, dword[ Seconds ]
+	add eax, 1
+	mov dword[ Seconds ], eax
+
 	call resetWritePtr
 
 	mov esi, Exception
-	push qword[ Ticks ]
+	push rax
 	call printf
 	add esp, 8
 
+	.end:
 	mov al, 0x20
 	out 0x20, al
 
@@ -211,6 +233,7 @@ gdt_limit dw 40
 gdt_base dd GDT_BASE
 multibootstruc dq 0
 
+Seconds dd 0
 Ticks dq 0
 Exception db 'Timer ticks till now: %d',0
 KernelLoadedMsg db 'The kernel was successfully loaded',0x13, 0
