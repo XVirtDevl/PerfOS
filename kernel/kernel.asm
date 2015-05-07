@@ -1,6 +1,8 @@
 %define FLAGS 3
 %define MAGIC 0x1BADB002
 %define CHECKSUM -(MAGIC+FLAGS)
+%include "video.inc"
+%include "multiboot.inc"
 
 section multiboot
 align 4
@@ -13,7 +15,7 @@ extern kernel
 section .text
 global _start
 _start:
-	mov esp, 0x700000
+	mov esp, 0x200000
 	mov dword[ multibootstruc ], ebx
 	mov eax, 0x80000001
 	cpuid
@@ -145,11 +147,48 @@ LongMode:
 	mov ss, ax
 	mov gs, ax
 
+	call clearScreen
 	
+	mov esi, KernelLoadedMsg
+	call printf
+
+	mov esi, dword[ multibootstruc ]
+	mov ecx, dword[ esi + multiboot.mmap_length ]
+	mov edi, dword[ esi + multiboot.mmap_addr ]
+
+	mov esi, headerMemMap
+	call printf
+
+	.Helper:
+		mov eax, dword[ edi + 16 ]
+		sub eax, 1
+		shl eax, 2
+		add eax, MemMapEntryList
+		mov eax, dword[ eax ]
+		push rax
+		push qword[ edi + 8 ]
+		push qword[ edi ]
+		mov esi, MemMapEntry
+		call printf
+		add esp, 24
+
+		add edi, 24
+		sub ecx, 24
+		jnz .Helper		
+
 	jmp $
 
 gdt_limit dw 40
 gdt_base dd GDT_BASE
 multibootstruc dq 0
 
-NoLongModeMsg db 'Long mode is not available the OS can not boot please restart the PC', 0
+KernelLoadedMsg db 'The kernel was successfully loaded',0x13, 0
+headerMemMap db 'Base address       | Length             | Type',0
+MemMapEntry db 0x13,'%X | %X | %s',0
+
+MemMapEntryUsable db 'Free Memory',0
+MemMapEntryUsed db 'Reserved memory - unusable', 0
+MemMapEntryACPI db 'ACPI Reclaimable memory',0
+MemMapEntryNVS db 'ACPI NVS memory',0
+MemMapEntryList dd MemMapEntryUsable, MemMapEntryUsed, MemMapEntryACPI, MemMapEntryNVS
+NoLongModeMsg db 0x13,'Long mode %x isi %d not available the OS can not boot please restart the PC', 0

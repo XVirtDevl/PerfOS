@@ -1,0 +1,3 @@
+extern printf
+extern setScreenAttributes
+extern clearScreen
