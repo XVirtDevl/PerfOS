@@ -3,6 +3,7 @@
 %define CHECKSUM -(MAGIC+FLAGS)
 %include "video.inc"
 %include "multiboot.inc"
+%include "apic.inc"
 
 section multiboot
 align 4
@@ -15,7 +16,7 @@ extern kernel
 section .text
 global _start
 _start:
-	mov esp, 0x200000
+	mov esp, 0x700000
 	mov dword[ multibootstruc ], ebx
 	mov eax, 0x80000001
 	cpuid
@@ -174,14 +175,44 @@ LongMode:
 
 		add edi, 24
 		sub ecx, 24
-		jnz .Helper		
+		jnz .Helper	
 
+	mov edi, 0x400000
+	call setIDTBase	
+	
+	call picRemapIRQ
+
+	mov ecx, 32
+	mov edi, timer_tick
+	call setIDTGate
+
+	call loadNewIDT
+
+	call clearScreen
+	sti
 	jmp $
+
+align 8
+timer_tick:
+	add dword[Ticks], 1
+	call resetWritePtr
+
+	mov esi, Exception
+	push qword[ Ticks ]
+	call printf
+	add esp, 8
+
+	mov al, 0x20
+	out 0x20, al
+
+	iretq
 
 gdt_limit dw 40
 gdt_base dd GDT_BASE
 multibootstruc dq 0
 
+Ticks dq 0
+Exception db 'Timer ticks till now: %d',0
 KernelLoadedMsg db 'The kernel was successfully loaded',0x13, 0
 headerMemMap db 'Base address       | Length             | Type',0
 MemMapEntry db 0x13,'%X | %X | %s',0

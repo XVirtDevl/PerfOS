@@ -210,6 +210,12 @@ clearScreen:
 	pop rdi
 	pop rcx
 	pop rax
+	mov dword[ ScreenPointer ], 0xb8000
+	ret
+
+global resetWritePtr
+resetWritePtr:
+	mov dword[ ScreenPointer ], 0xb8000
 	ret
 
 ScreenPointer dd 0xb8000
