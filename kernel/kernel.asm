@@ -160,7 +160,9 @@ LongMode:
 	mov esi, headerMemMap
 	call printf
 
+	xor edx, edx
 	.Helper:
+		add edx, 1
 		mov eax, dword[ edi + 16 ]
 		sub eax, 1
 		shl eax, 2
@@ -182,59 +184,19 @@ LongMode:
 	
 	call picRemapIRQ
 
-	mov ecx, 32
-	mov edi, timer_tick
-	call setIDTGate
-
 	call loadNewIDT
 
-	call clearScreen
 
-	mov al, 0x36
-	out 0x43, al
-
-	mov ax,11938
-	out 0x40, al
-	shr ax, 8
-	out 0x40, al
-	sti
+	call updateScreen
 	jmp $
-
-align 8
-timer_tick:
-	mov eax, dword[ Ticks ]
-	add eax, 1
-	mov dword[ Ticks ], eax
-	
-	cmp eax, 100
-	jnz .end
-	
-	xor eax, eax
-	mov dword[ Ticks ], eax
-
-	mov eax, dword[ Seconds ]
-	add eax, 1
-	mov dword[ Seconds ], eax
-
-	call resetWritePtr
-
-	mov esi, Exception
-	push rax
-	call printf
-	add esp, 8
-
-	.end:
-	mov al, 0x20
-	out 0x20, al
-
-	iretq
 
 gdt_limit dw 40
 gdt_base dd GDT_BASE
 multibootstruc dq 0
 
-Seconds dd 0
-Ticks dq 0
+Ticks2 dq 0
+Ticks1 dq 0
+Ticks db 0x13,'Tick part: %d, Tick whole: %d', 0
 Exception db 'Timer ticks till now: %d',0
 KernelLoadedMsg db 'The kernel was successfully loaded',0x13, 0
 headerMemMap db 'Base address       | Length             | Type',0
