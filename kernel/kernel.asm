@@ -149,35 +149,6 @@ LongMode:
 	mov gs, ax
 
 	call clearScreen
-	
-	mov esi, KernelLoadedMsg
-	call printf
-
-	mov esi, dword[ multibootstruc ]
-	mov ecx, dword[ esi + multiboot.mmap_length ]
-	mov edi, dword[ esi + multiboot.mmap_addr ]
-
-	mov esi, headerMemMap
-	call printf
-
-	xor edx, edx
-	.Helper:
-		add edx, 1
-		mov eax, dword[ edi + 16 ]
-		sub eax, 1
-		shl eax, 2
-		add eax, MemMapEntryList
-		mov eax, dword[ eax ]
-		push rax
-		push qword[ edi + 8 ]
-		push qword[ edi ]
-		mov esi, MemMapEntry
-		call printf
-		add esp, 24
-
-		add edi, 24
-		sub ecx, 24
-		jnz .Helper	
 
 	mov edi, 0x400000
 	call setIDTBase	
@@ -186,25 +157,14 @@ LongMode:
 
 	call loadNewIDT
 
+	mov al, 3
+	call scrollScreen
 
-	call updateScreen
+	call updateScreenv
 	jmp $
 
 gdt_limit dw 40
 gdt_base dd GDT_BASE
 multibootstruc dq 0
 
-Ticks2 dq 0
-Ticks1 dq 0
-Ticks db 0x13,'Tick part: %d, Tick whole: %d', 0
-Exception db 'Timer ticks till now: %d',0
-KernelLoadedMsg db 'The kernel was successfully loaded',0x13, 0
-headerMemMap db 'Base address       | Length             | Type',0
-MemMapEntry db 0x13,'%X | %X | %s',0
-
-MemMapEntryUsable db 'Free Memory',0
-MemMapEntryUsed db 'Reserved memory - unusable', 0
-MemMapEntryACPI db 'ACPI Reclaimable memory',0
-MemMapEntryNVS db 'ACPI NVS memory',0
-MemMapEntryList dd MemMapEntryUsable, MemMapEntryUsed, MemMapEntryACPI, MemMapEntryNVS
 NoLongModeMsg db 0x13,'Long mode %x isi %d not available the OS can not boot please restart the PC', 0

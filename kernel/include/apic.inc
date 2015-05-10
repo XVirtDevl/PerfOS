@@ -3,3 +3,4 @@ extern setIDTBase
 extern loadNewIDT
 extern picRemapIRQ
 extern picMapInterrupts
+extern startAllAPs

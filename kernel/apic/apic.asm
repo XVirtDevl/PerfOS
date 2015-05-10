@@ -95,5 +95,10 @@ picMapInterrupts:
 	out PIC_SLAVE_IMR, al	
 
 	ret
+
+global startAllAPs
+startAllAPs:
+	
+
 IDT_LIMIT dw (256*16)-1
 IDT_Base dq 0

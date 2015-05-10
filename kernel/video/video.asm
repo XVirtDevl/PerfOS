@@ -1,8 +1,3 @@
-struc RefreshCommand
-	.BaseAddress resd 1
-	.Length resd 1
-endstruc
-
 global printf
 ;rsi = string address, parameters on the stack
 printf:
@@ -209,7 +204,19 @@ updateScreen:
 global setScreenAttributes
 ;al = new ScreenAttributes
 setScreenAttributes:
+	push rcx
 	mov byte[ScreenAttributes], al
+	mov ch, byte[ ScreenAttributes ]
+	mov cl, 0x20
+	mov ax, cx
+	shl ax, 16
+	mov ax, cx
+	shl ax, 16
+	mov ax, cx
+	shl ax, 16
+	mov ax, cx
+	mov qword[ ScreenDefaultChar ], rax
+	pop rcx
 	ret
 	
 
@@ -217,42 +224,70 @@ global clearScreen
 clearScreen:
 	push rax
 	push rcx
-
-	xor rax, rax
-	mov ch, byte[ ScreenAttributes ]
-	mov cl, 0x20
-	mov ax, cx
-	shl ax, 16
 	push rdi
-	mov ax, cx
-	shl ax, 16
-	mov edi, ScreenBuffer
-	mov ax, cx
-	shl ax, 16
-	mov ax, cx
 
+	mov edi, dword[ ScreenPointer ]
+	mov rax, qword[ ScreenDefaultChar ]
 	mov ecx, 25*20
 	rep stosq
 
 	pop rdi
 	pop rcx
 	pop rax
-	mov dword[ ScreenPointer ], 0xb8000
 	ret
 
-global resetWritePtr
-resetWritePtr:
-	mov dword[ ScreenPointer ], 0xb8000
-	ret
+global scrollScreen
+;eax scroll count
+scrollScreen:
+	push rdi
+
+
+	test al, 0x80
+	jz .downScroll
+	
+	mov edi, dword[ PageBase ]
+
+	and al, 0x7F
+
+	or al, al
+	jz .done
+	
+	.NewPageBase:
+		sub edi, 160
+
+		sub al, 1	
+		jnz .NewPageBase	
+	
+	cmp edi, ScreenBuffer
+	jns .done
+
+	mov edi, ScreenBuffer
+	jmp .done
+
+	.downScroll:
+		or al, al
+		jz .done
+
+		mov edi, dword[ PageBase ]
+	.NewPageBaseDown:
+		add edi, 160
+		sub al, 1
+		jnz .NewPageBaseDown
+
+	.done:
+		mov dword[ PageBase ], edi
+		pop rdi
+		ret
+
+	
 
 ScreenPointer dd 0xb8000
 WriteBuffer dd ScreenBuffer
 PageBase dd ScreenBuffer
-ScreenAttributes db 0x0F
-CommandBufferLength dd 0
+ScreenAttributes dd 0x0F
+ScreenDefaultChar dq 0x0F200F200F200F20
 
 section .bss
 
-CommandBuffer resq 100
 DecimalBuffer resb 32
 ScreenBuffer resb 4096*100
