@@ -1,6 +1,5 @@
 %include "elf64.inc"
 %include "multiboot.inc"
-%define MultibootStrucAddr 0x500
 %define mmap_addr 0x600
 org 0x7C00
 [BITS 16]

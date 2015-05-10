@@ -85,7 +85,7 @@ align 8
 		mov fs, ax
 		mov gs, ax
 		mov ss, ax
-		
+	
 		mov eax, cr4
 		or eax, 0x20
 		mov cr4, eax	; Set PAE-Bit 
@@ -103,6 +103,7 @@ align 8
 
 		jmp 0x18:LongMode
 
+	
 InitialisePaging:
 		mov edi, 0x300000
 		xor eax, eax
@@ -117,14 +118,23 @@ InitialisePaging:
 		mov dword[ edi ], eax
 		mov dword[ edi + 4 ], ebx
 		
+		mov ecx, 4	
 		add edi, 0x1000
-		add eax, 0x1000
-		mov dword[ edi ], eax
-		mov dword[ edi + 4 ], ebx
+		push edi
+		.MapAll:
+			add eax, 0x1000
+			mov dword[ edi ], eax
+			mov dword[ edi + 4 ], ebx
+			add edi, 8
 
+			sub ecx, 1
+			jnz .MapAll
+
+		pop edi
 		add edi, 0x1000
 		mov eax, 0x8B
-		mov ecx, 512
+		mov ecx, 2048
+			
 
 		.Map:
 			mov dword[ edi ], eax
@@ -150,14 +160,66 @@ LongMode:
 
 	call clearScreen
 
-	mov edi, 0x400000
+	mov edi, 0x400000	
+	mov dword[ MultibootStrucAddr + multiboot.idtr_addr ], edi
 	call setIDTBase	
 	
 	call picRemapIRQ
 
 	call loadNewIDT
+
+	mov esi, _load
+	mov edi, 0x1000
+	mov ecx, _loadend-_load
+	rep movsb
+
+	mov dword[ MultibootStrucAddr + multiboot.gdtr_addr ], gdt_limit 
+
+	mov al, 1
+	call startAllAPs	
+
+_EntryPoint:
 	jmp $
 
+[BITS 16]
+_load:
+	mov eax, dword[ MultibootStrucAddr + multiboot.gdtr_addr ]
+	cli
+	lgdt[ eax ]
+
+	mov eax, cr0
+	or eax, 1
+	mov cr0, eax
+	
+	jmp dword 0x8:_protMode
+
+[BITS 32]
+	_protMode:
+		mov ax, 0x10
+		mov ds, ax
+		mov es, ax
+		mov ss, ax
+		mov fs, ax
+		mov gs, ax
+
+		mov eax, cr4
+		or eax, 0x20
+		mov cr4, eax	; Set PAE-Bit 
+
+		mov eax, 0x300000
+		mov cr3, eax
+	
+		mov ecx, 0xC0000080
+		rdmsr
+		or eax, 0x100	;Set Long Mode Bit
+		wrmsr
+
+		mov eax, cr0	
+		or eax, 0x80000000	;Activate Paging
+		mov cr0, eax
+		jmp 0x18:_EntryPoint
+			
+_loadend:
 gdt_limit dw 40
 gdt_base dd GDT_BASE
 multibootstruc dq 0
