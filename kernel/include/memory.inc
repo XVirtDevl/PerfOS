@@ -1,0 +1,2 @@
+extern mapPhysToVirt
+extern InitialiseVirtMem
