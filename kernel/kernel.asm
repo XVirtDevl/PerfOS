@@ -156,11 +156,6 @@ LongMode:
 	call picRemapIRQ
 
 	call loadNewIDT
-
-	mov al, 3
-	call scrollScreen
-
-	call updateScreenv
 	jmp $
 
 gdt_limit dw 40

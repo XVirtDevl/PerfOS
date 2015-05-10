@@ -5,3 +5,7 @@ nasm -f elf64 -o ./bin/apic.elf ./kernel/apic/apic.asm -i ./kernel/include/
 ld -z max-page-size=0x1000 -nostdlib -m elf_x86_64 -T ./kernel/link.ld -o ./bin/kernel.bin ./bin/kernel.elf ./bin/video.elf ./bin/apic.elf
 cat ./bin/kernel.bin >> ./bin/bootloader.bin
 ./appender ./bin/bootloader.bin ./bin/bootloader.bin
+rm ./bin/video.elf
+rm ./bin/kernel.elf
+rm ./bin/apic.elf
+
