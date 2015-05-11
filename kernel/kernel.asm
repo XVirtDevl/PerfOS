@@ -5,18 +5,19 @@
 %include "multiboot.inc"
 %include "apic.inc"
 
+
 section multiboot
 align 4
 my_magic dd MAGIC
 dd FLAGS
 dd CHECKSUM
-extern kernel
-%define GDT_BASE 0
+STACK_BASE dd 0x500000
+%define GDT_BASE 0x7C00
 [BITS 32]
 section .text
 global _start
 _start:
-	mov esp, 0x700000
+	mov esp, dword[ STACK_BASE ]
 	mov dword[ multibootstruc ], ebx
 	mov eax, 0x80000001
 	cpuid
@@ -160,14 +161,6 @@ LongMode:
 
 	call clearScreen
 
-	mov edi, 0x400000	
-	mov dword[ MultibootStrucAddr + multiboot.idtr_addr ], edi
-	call setIDTBase	
-	
-	call picRemapIRQ
-
-	call loadNewIDT
-
 	mov esi, _load
 	mov edi, 0x1000
 	mov ecx, _loadend-_load
@@ -177,8 +170,40 @@ LongMode:
 
 	mov al, 1
 	call startAllAPs	
+	
+	mov edi, 0x400000	
+	mov dword[ MultibootStrucAddr + multiboot.idtr_addr ], edi
+	call setIDTBase	
+	
+	call picRemapIRQ
 
+	jmp _loadIDT
 _EntryPoint:
+	mov ax, 0x20
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov ss, ax
+	mov gs, ax
+
+	.try_lock_again:
+		mov al, 1
+		xchg byte[ mutex_lock ], al
+		or al, al
+		jnz .try_lock_again
+
+		mov esp, dword[ STACK_BASE ]
+		add esp, 0x2000
+		mov dword[ STACK_BASE ], esp
+
+		xor al, al
+		mov byte[ mutex_lock ], al
+	
+
+_loadIDT:
+	call loadNewIDT
+
+
 	jmp $
 
 [BITS 16]
@@ -223,5 +248,5 @@ _loadend:
 gdt_limit dw 40
 gdt_base dd GDT_BASE
 multibootstruc dq 0
-
+mutex_lock dd 0
 NoLongModeMsg db 0x13,'Long mode %x isi %d not available the OS can not boot please restart the PC', 0
