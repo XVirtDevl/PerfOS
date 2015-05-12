@@ -206,14 +206,14 @@ global setScreenAttributes
 setScreenAttributes:
 	push rcx
 	mov byte[ScreenAttributes], al
-	mov ch, byte[ ScreenAttributes ]
+	mov ch, al
 	mov cl, 0x20
 	mov ax, cx
-	shl ax, 16
+	shl rax, 16
 	mov ax, cx
-	shl ax, 16
+	shl rax, 16
 	mov ax, cx
-	shl ax, 16
+	shl rax, 16
 	mov ax, cx
 	mov qword[ ScreenDefaultChar ], rax
 	pop rcx
@@ -226,10 +226,28 @@ clearScreen:
 	push rcx
 	push rdi
 
-	mov edi, dword[ ScreenPointer ]
+	mov edi, dword[ PageBase ]
+	mov eax, dword[ WriteBuffer ]
+	cmp edi, eax
+	ja .notInside
+
+	add edi, 4000
+	cmp edi, eax
+	js .notInside
+
+	sub edi, 4000
 	mov rax, qword[ ScreenDefaultChar ]
 	mov ecx, 25*20
 	rep stosq
+	
+	sub edi, 4000
+	mov dword[ WriteBuffer ], edi
+
+	.notInside: 
+		mov edi, dword[ ScreenPointer ]
+		mov rax, qword[ ScreenDefaultChar ]
+		mov ecx, 25*20
+		rep stosq
 
 	pop rdi
 	pop rcx

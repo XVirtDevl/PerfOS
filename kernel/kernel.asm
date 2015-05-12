@@ -4,7 +4,8 @@
 %include "video.inc"
 %include "multiboot.inc"
 %include "apic.inc"
-
+%include "memory.inc"
+%include "processor.inc"
 
 section multiboot
 align 4
@@ -18,7 +19,9 @@ section .text
 global _start
 _start:
 	mov esp, dword[ STACK_BASE ]
-	mov dword[ multibootstruc ], ebx
+	mov dword[ multibootstruc ], ebx	; A multiboot compliant bootloader will set ebx to the address of the multibootstructure
+
+
 	mov eax, 0x80000001
 	cpuid
 	and edx, 0x20000000	;Check for the long mode support bit
@@ -31,16 +34,17 @@ _start:
 	jz .fatal_error		;If not available quit OS
 
 	xor eax, eax		;Set up new gdt to ensure transparence as well as enable 64 bit segment descriptors
-	mov dword[ GDT_BASE + 0 ], eax
+
+	mov dword[ GDT_BASE + 0 ], eax		; Null Descriptor
 	mov dword[ GDT_BASE + 4 ], eax
 
 	mov eax, 0xFFFF
-	mov dword[ GDT_BASE + 8 ], eax
+	mov dword[ GDT_BASE + 8 ], eax		; Limit set to max for all 4 Descriptors
 	mov dword[ GDT_BASE + 16 ], eax
 	mov dword[ GDT_BASE + 24 ], eax
 	mov dword[ GDT_BASE + 32 ], eax
 
-	mov eax, 0x00CF9A00
+	mov eax, 0x00CF9A00	
 	mov dword[ GDT_BASE + 12 ], eax		;Code Segment 32-bit offset: 0x8
 
 	and eax, 0xFFFFF7FF
@@ -62,7 +66,7 @@ _start:
 
 		mov ah, 0x04
 		mov edi, 0xb8000
-		mov esi, NoLongModeMsg
+		mov esi, NoLongModeMsg	;Print error string
 
 		.print:
 			mov al, byte[ esi ]
@@ -80,7 +84,7 @@ _start:
 		
 align 8
 	_OwnGDT:
-		mov ax, 0x10
+		mov ax, 0x10	;Load new data descriptors
 		mov ds, ax
 		mov es, ax
 		mov fs, ax
@@ -106,7 +110,7 @@ align 8
 
 	
 InitialisePaging:
-		mov edi, 0x300000
+		mov edi, BOOTUP_PML4_ADDR
 		xor eax, eax
 		mov ecx, 0x1000
 		rep stosd
@@ -145,106 +149,36 @@ InitialisePaging:
 			sub ecx, 1
 			jnz .Map
 
-		mov eax, 0x300000
+		mov eax, BOOTUP_PML4_ADDR
 		mov cr3, eax
 		ret				;Identity Mapped First GB
 
 align 8
 [BITS 64]
 LongMode:
-	mov ax, 0x20
+	mov ax, 0x20	;Load 64-bit Data descriptors
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
 	mov ss, ax
 	mov gs, ax
+
+	mov al, COLOR_PAIR( COLOR_BLACK, COLOR_WHITE )
+	call setScreenAttributes
 
 	call clearScreen
 
-	mov esi, _load
-	mov edi, 0x1000
-	mov ecx, _loadend-_load
-	rep movsb
+	call InitialiseAPICModule
 
-	mov dword[ MultibootStrucAddr + multiboot.gdtr_addr ], gdt_limit 
+	mov edi, 0x1000	
+	mov eax, gdt_limit
+	call setUpMulticoreEnvironment
 
-	mov al, 1
-	call startAllAPs	
-	
-	mov edi, 0x400000	
-	mov dword[ MultibootStrucAddr + multiboot.idtr_addr ], edi
-	call setIDTBase	
-	
-	call picRemapIRQ
-
-	jmp _loadIDT
-_EntryPoint:
-	mov ax, 0x20
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov ss, ax
-	mov gs, ax
-
-	.try_lock_again:
-		mov al, 1
-		xchg byte[ mutex_lock ], al
-		or al, al
-		jnz .try_lock_again
-
-		mov esp, dword[ STACK_BASE ]
-		add esp, 0x2000
-		mov dword[ STACK_BASE ], esp
-
-		xor al, al
-		mov byte[ mutex_lock ], al
-	
-
-_loadIDT:
-	call loadNewIDT
-
-
+	mov eax, 0x1000
+	call startAllAPs
 	jmp $
-
-[BITS 16]
-_load:
-	mov eax, dword[ MultibootStrucAddr + multiboot.gdtr_addr ]
-	cli
-	lgdt[ eax ]
-
-	mov eax, cr0
-	or eax, 1
-	mov cr0, eax
 	
-	jmp dword 0x8:_protMode
 
-[BITS 32]
-	_protMode:
-		mov ax, 0x10
-		mov ds, ax
-		mov es, ax
-		mov ss, ax
-		mov fs, ax
-		mov gs, ax
-
-		mov eax, cr4
-		or eax, 0x20
-		mov cr4, eax	; Set PAE-Bit 
-
-		mov eax, 0x300000
-		mov cr3, eax
-	
-		mov ecx, 0xC0000080
-		rdmsr
-		or eax, 0x100	;Set Long Mode Bit
-		wrmsr
-
-		mov eax, cr0	
-		or eax, 0x80000000	;Activate Paging
-		mov cr0, eax
-		jmp 0x18:_EntryPoint
-			
-_loadend:
 gdt_limit dw 40
 gdt_base dd GDT_BASE
 multibootstruc dq 0

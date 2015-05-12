@@ -1,2 +1,1 @@
-extern mapPhysToVirt
-extern InitialiseVirtMem
+%define BOOTUP_PML4_ADDR 0x300000
