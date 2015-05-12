@@ -1,5 +1,10 @@
 %include "multiboot.inc"
 
+struc cpu_state
+	.workScheduleAddr resd 1
+	.workScheduleSize resd 1
+endstruc
+
 global setUpMulticoreEnvironment
 ; rax = gdtr address, rdi = load address 4KB aligned
 setUpMulticoreEnvironment:
@@ -22,11 +27,19 @@ _APEntryPoint:
 	mov fs, ax
 	mov gs, ax
 	
-	mov eax, 0xFA10
+	mov al, 1
+	.try_again:
+		xchg byte[ InitialisationMutex ], al
+		or al, al
+		jnz .try_again
+
+	
+
 
 	jmp $
 
-
+InitialisationMutex db 0
+ApplicationProcessorCount dd 0
 ;;The whole 16-bit code will be relocated to a 4KB boundary so that the APs will start at that address
 [BITS 16]
 _load:
@@ -67,4 +80,6 @@ _loadend:
 		mov cr0, eax
 		
 		jmp 0x18:_APEntryPoint
-			
+
+section .bss
+	cpu_state_buffer resb 256*4

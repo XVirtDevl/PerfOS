@@ -297,7 +297,23 @@ scrollScreen:
 		pop rdi
 		ret
 
+global endl
+endl:
+	push rdi
+	mov edi, dword[ WriteBuffer ]
+	sub edi, ScreenBuffer
+
+	.PrLoop:
+		sub edi, 160
+		jns .PrLoop
+		not edi
+		add edi, 1
 	
+	add dword[ WriteBuffer ], edi
+	pop rdi
+	ret
+
+		
 
 ScreenPointer dd 0xb8000
 WriteBuffer dd ScreenBuffer

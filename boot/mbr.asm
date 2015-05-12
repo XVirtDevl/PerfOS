@@ -33,7 +33,7 @@ mov dword[ MultibootStrucAddr + multiboot.mmap_addr ], 0x600
 mov eax, 0xE820
 mov edx, 0x534D4150 
 xor ebx, ebx
-mov ecx, 24
+mov ecx, 20
 mov di, mmap_addr
 clc
 int 0x15
@@ -42,8 +42,8 @@ jc fatal_error
 .again_mmap:
 mov edx, 0xE820
 xchg eax, edx
-mov ecx, 24
-add di, 24
+mov ecx, 20
+add di, 20
 int 0x15
 jc .next
 

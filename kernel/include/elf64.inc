@@ -1,4 +1,5 @@
 %define ELFMAGIC ('ELF'<<8)|0x7F
+
 struc elf64header
 	.imagic0 resb 1
 	.imagicELF resb 3

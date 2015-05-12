@@ -19,8 +19,28 @@ section .text
 global _start
 _start:
 	mov esp, dword[ STACK_BASE ]
-	mov dword[ multibootstruc ], ebx	; A multiboot compliant bootloader will set ebx to the address of the multibootstructure
+	
+	cmp ebx, 0x500
+	jz .RelocateDone
 
+	mov esi, ebx
+	mov edi, MultibootStrucAddr
+	mov ecx, 22
+	rep movsd
+	
+	.RelocateDone:	
+		mov esi, dword[ MultibootStrucAddr + multiboot.mmap_addr ]
+		
+		mov dword[ MultibootStrucAddr + multiboot.mmap_addr ], 0x600
+		
+		or esi, esi
+		jz .RemoveMmapDone	
+
+		mov ecx, dword[ MultibootStrucAddr + multiboot.mmap_length ]
+		mov edi, 0x600
+		rep movsb
+
+	.RemoveMmapDone:
 
 	mov eax, 0x80000001
 	cpuid
@@ -168,6 +188,20 @@ LongMode:
 
 	call clearScreen
 
+
+	call InitialisePhysMem
+
+	mov rax, 0x1000
+	mov rsi, NeedMem
+	call AllocMemory
+
+	mov rax, 0x3000
+	mov rsi, NeedMem
+	call AllocMemory
+
+	call DebugMemoryAllocation
+	jmp $
+
 	call InitialiseAPICModule
 
 	mov edi, 0x1000	
@@ -179,8 +213,7 @@ LongMode:
 	jmp $
 	
 
+NeedMem db 'Needed Mem',0
 gdt_limit dw 40
 gdt_base dd GDT_BASE
-multibootstruc dq 0
-mutex_lock dd 0
 NoLongModeMsg db 0x13,'Long mode %x isi %d not available the OS can not boot please restart the PC', 0
