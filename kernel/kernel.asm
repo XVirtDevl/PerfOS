@@ -191,15 +191,35 @@ LongMode:
 
 	call InitialisePhysMem
 
+	call DebugMemoryAllocation
+
 	mov rax, 0x1000
 	mov rsi, NeedMem
 	call AllocMemory
+	push rsi
 
 	mov rax, 0x3000
 	mov rsi, NeedMem
 	call AllocMemory
+	push rsi
 
 	call DebugMemoryAllocation
+
+	pop rax
+	call FreeMemory
+
+	pop rax
+	call FreeMemory
+
+	xor rdi, rdi
+	mov ecx, 0x1000000
+	call BlockMemory
+
+	call DebugMemoryAllocation
+
+	mov rax, 0x3000
+	mov rsi, NeedMem
+	call AllocMemory
 	jmp $
 
 	call InitialiseAPICModule

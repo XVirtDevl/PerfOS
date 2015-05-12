@@ -31,18 +31,24 @@ printf:
 
 	.newLine:
 		mov eax, edi
-		sub edi, ScreenBuffer
+		sub eax, ScreenBuffer
+		push rdx
+		push rbx
 
-		.calcNewLine:
-			sub edi, 160
-			ja .calcNewLine
+		xor edx, edx
+		mov ebx, 160
+		div ebx
+		mov eax, 160
+		sub eax, edx
+		add edi, eax
+		
+		pop rbx
+		pop rdx
 
-			not edi
-			add eax, 1
-			add edi, eax
-			mov ah, byte[ ScreenAttributes ]
-			mov dword[ WriteBuffer ], edi
-			jmp .printStr
+		mov ah, byte[ ScreenAttributes ]
+		jmp .printStr
+
+
 		
 
 	.formatOutput:
@@ -299,20 +305,24 @@ scrollScreen:
 
 global endl
 endl:
-	push rdi
-	mov edi, dword[ WriteBuffer ]
-	sub edi, ScreenBuffer
+	push rax
+	mov eax, dword[ WriteBuffer ]
+	push rdx
+	push rbx
+	sub eax, ScreenBuffer
 
-	.PrLoop:
-		sub edi, 160
-		jns .PrLoop
-		not edi
-		add edi, 1
+	xor edx, edx
+	mov ebx, 160
+	div ebx
+	mov eax, 160
+	sub eax, edx
+	add edi, eax
+		
+	pop rbx
+	pop rdx
+	pop rax
 	
-	add dword[ WriteBuffer ], edi
-	pop rdi
 	ret
-
 		
 
 ScreenPointer dd 0xb8000
