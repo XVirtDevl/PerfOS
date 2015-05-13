@@ -12,33 +12,35 @@ align 4
 my_magic dd MAGIC
 dd FLAGS
 dd CHECKSUM
-STACK_BASE dd 0x500000
-%define GDT_BASE 0x7C00
+%define STACK_BASE_ADDR  0x400000
+%define GDT_BASE 0x800
+
+
 [BITS 32]
 section .text
 global _start
 _start:
-	mov esp, dword[ STACK_BASE ]
+	mov esp, STACK_BASE_ADDR
 	
-	cmp ebx, 0x500
+	cmp ebx, 0x500			;In EBX is the address of the multibootstructure if the multibootstructure already resides at 0x500 there is no need to relocate it
 	jz .RelocateDone
 
-	mov esi, ebx
+	mov esi, ebx			
 	mov edi, MultibootStrucAddr
 	mov ecx, 22
-	rep movsd
+	rep movsd			; Else transfer the multibootstructure to address 0x500
 	
 	.RelocateDone:	
-		mov esi, dword[ MultibootStrucAddr + multiboot.mmap_addr ]
+		mov esi, dword[ MultibootStrucAddr + multiboot.mmap_addr ]	;MultibootStrucAddrs value is 0x500 so the memory map of int 15h 0xe820 is relocated too
 		
-		mov dword[ MultibootStrucAddr + multiboot.mmap_addr ], 0x600
+		mov dword[ MultibootStrucAddr + multiboot.mmap_addr ], MemMapAddr ;Memmap will be at 0x600 from now on
 		
 		or esi, esi
-		jz .RemoveMmapDone	
+		jz .RemoveMmapDone	; Got no memory map? skip the relocation
 
 		mov ecx, dword[ MultibootStrucAddr + multiboot.mmap_length ]
 		mov edi, 0x600
-		rep movsb
+		rep movsb		;Relocate memory map
 
 	.RemoveMmapDone:
 
@@ -126,25 +128,26 @@ align 8
 		or eax, 0x80000000	;Activate Paging
 		mov cr0, eax
 
-		jmp 0x18:LongMode
+		jmp 0x18:LongMode	; Enter long mode
 
 	
 InitialisePaging:
-		mov edi, BOOTUP_PML4_ADDR
-		xor eax, eax
-		mov ecx, 0x1000
+		mov edi, BOOTUP_PML4_ADDR	; Create the first paging structures at the BOOTUP_PML4_ADDR which is currently at 3MB
+		xor eax, eax			; Clear all memory used to avoid possible unwanted pages
+		mov ecx, 0x2000
 		rep stosd
-		mov edi, 0x300000
+
+		mov edi, BOOTUP_PML4_ADDR
 
 
-		mov eax, 0x30100F
+		mov eax, BOOTUP_PML4_ADDR + 0x100F
 		xor ebx, ebx
 	
-		mov dword[ edi ], eax
-		mov dword[ edi + 4 ], ebx
+		mov dword[ edi ], eax		; First PML4 entry maps 512GB by default
+		mov dword[ edi + 4 ], ebx	; zero out upper half
 		
-		mov ecx, 4	
-		add edi, 0x1000
+		mov ecx, 4			; We need 4 entries to identity map all 4 GB memory
+		add edi, 0x1000			
 		push edi
 		.MapAll:
 			add eax, 0x1000
@@ -191,6 +194,10 @@ LongMode:
 
 	call InitialisePhysMem
 
+	xor rdi, rdi
+	mov ecx, 0x2000
+	call BlockMemory
+
 	call DebugMemoryAllocation
 
 	mov rax, 0x1000
@@ -211,15 +218,17 @@ LongMode:
 	pop rax
 	call FreeMemory
 
-	xor rdi, rdi
-	mov ecx, 0x1000000
+	mov rdi, 0x7C00
+	mov ecx, 2048
 	call BlockMemory
 
 	call DebugMemoryAllocation
 
-	mov rax, 0x3000
+	mov rax, 0x30000
 	mov rsi, NeedMem
 	call AllocMemory
+
+	call PrintAllHeads
 	jmp $
 
 	call InitialiseAPICModule

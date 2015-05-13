@@ -2,7 +2,7 @@
 %include "exception.inc"
 %include "video.inc"
 
-%define FIRST_USABLE_ADDR 0x800
+%define FIRST_USABLE_ADDR 0x900
 
 struc PhysMemMapEntry
 	.length resq 1
@@ -161,6 +161,44 @@ AllocMemory:
 ;rsi = 20 + (100 - 20-20)
 ;rsi = 20 + 60 = 80
 
+global PrintAllHeads
+PrintAllHeads:
+	push rsi
+	push rdi
+	mov rdi, qword[ FirstHead ]
+	
+	or rdi, rdi
+	jz AllocMemory.fatal_no_mem
+
+	
+	mov esi, DebugHead
+	call printf
+
+	.looped:
+		mov rsi, qword[ rdi + PhysMemMapEntry.usage ]
+		or rsi, rsi
+		jnz .PushRSI
+
+		mov rsi, FreeMemoryMsg
+	.PushRSI:
+		push rsi
+		push qword[ rdi + PhysMemMapEntry.length ]
+		push rdi
+		mov esi, DebugMsg
+		call printf
+		add esp, 24
+
+	.selectNext:
+		mov rdi, qword[ rdi + PhysMemMapEntry.nextSelector ]
+		or rdi, rdi
+		jnz .looped
+
+		call updateScreen
+	
+		pop rdi
+		pop rsi
+		ret
+		
 	
 global DebugMemoryAllocation
 DebugMemoryAllocation:
@@ -187,7 +225,7 @@ DebugMemoryAllocation:
 		
 		cmp qword[ rdi + PhysMemMapEntry.usage ], 0
 		jz .selectNext
-	
+
 		add rcx, qword[ rdi + PhysMemMapEntry.length ]
 
 		mov rax, rdi
@@ -213,6 +251,7 @@ DebugMemoryAllocation:
 
 		call updateScreen
 	
+		
 		pop rcx	
 		pop rbx
 		pop rax
@@ -227,13 +266,20 @@ FreeMemory:
 	push rsi
 	push rdi
 	push rbx
+
 	sub rax, ENTRY_HEADER_SIZE
 	
 	mov rdi, qword[ rax + PhysMemMapEntry.nextSelector ]
 	mov rsi, qword[ rax + PhysMemMapEntry.lastSelector ]
 
+	cmp qword[ rax + PhysMemMapEntry.usage ], 0
+	jz .fatal_overwrite
+
 	or rdi, rdi
 	jz .testLower
+
+	cmp rax, rdi
+	jns .fatal_overwrite
 
 	cmp qword[ rdi + PhysMemMapEntry.usage ], 0
 	jz .MergeUpper
@@ -241,6 +287,9 @@ FreeMemory:
 	.testLower:
 		or rsi, rsi
 		jz .MergeNone
+	
+		cmp rsi, rax
+		jns .fatal_overwrite
 
 		cmp qword[ rsi + PhysMemMapEntry.usage ], 0
 		jz .MergeOnlyLower	
@@ -320,6 +369,11 @@ FreeMemory:
 		add qword[ rsi + PhysMemMapEntry.nextSelector ], rdi
 		jmp .MergeNone
 		
+	.fatal_overwrite:
+		push qword ErrMemMapEntryOverride
+		call FatalError
+		jmp $
+		
 
 global BlockMemory
 ;rdi = address, rcx = size
@@ -348,7 +402,7 @@ BlockMemory:
 		ret
 	.fatal_no_mem:	
 		push qword ErrNoMoreMem
-		call printf
+		call FatalError
 		jmp $
 
 	.CheckBounds:
@@ -386,7 +440,6 @@ BlockMemory:
 		mov qword[ rdi + PhysMemMapEntry.length ], rax
 		mov qword[ rdi + PhysMemMapEntry.usage ], 0
 		mov qword[ rdi + PhysMemMapEntry.lastSelector ], rsi
-		mov qword[ rsi + PhysMemMapEntry.nextSelector ], rdi
 
 		mov rax, rdi
 		xchg rax, qword[ rsi + PhysMemMapEntry.nextSelector ]
@@ -527,9 +580,11 @@ BlockMemory:
 		
 		
 	
+FreeMemoryMsg db 'Free memory',0
 DebugHead db 0x13,'Used memory table ver 0.1.0',0x13,' Base address       | Length             | Usage',0
 DebugMsg db 0x13,' %X | %X | %s',0
 DebugEnd db 0x13,' Free memory: %X used memory: %X',0
 FirstHead dq 0
+ErrMemMapEntryOverride db 'Module: pmemory.elf Error: The memory description block is corrupted!',0
 ErrNoMemmap db 'Module: pmemory.elf Error: The OS cannot determinate the amount of RAM usable!',0
 ErrNoMoreMem db 'Module: pmemory.elf Error: No more memory left to satisfy the desire',0

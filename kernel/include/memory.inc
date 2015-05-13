@@ -5,3 +5,4 @@ extern InitialisePhysMem
 extern AllocMemory
 extern FreeMemory
 extern DebugMemoryAllocation
+extern PrintAllHeads
