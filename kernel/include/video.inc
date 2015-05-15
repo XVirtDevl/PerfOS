@@ -1,8 +1,30 @@
 extern printf
+%macro VPrintf 1-*
+	mov rsi, %1	
+	%rep %0-1
+		%rotate 1
+		push %1
+	%endrep
+	call printf
+	add esp, %0*8
+%endmacro
+
+
 extern setScreenAttributes
+%macro VSetScreenAttributes 1
+	mov al, %1
+	call setScreenAttributes
+%endmacro
+
 extern clearScreen
 extern updateScreen
+
 extern scrollScreen
+%macro VScrollScreen 1
+	mov eax, %1
+	call scrollScreen
+%endmacro
+
 extern endl
 
 %define COLOR_BLACK 0

@@ -1,3 +1,22 @@
+
+MUTEX_VIDEO dd 0
+
+MutexLock:
+	push rax
+	mov al, 1
+	
+	.again:
+		xchg al, byte[ MUTEX_VIDEO ]
+		test al, al
+		jnz .again
+
+	pop rax
+	ret
+
+UnlockMutex:
+	mov byte[ MUTEX_VIDEO ], 0
+	ret
+
 global printf
 ;rsi = string address, parameters on the stack
 printf:
@@ -5,6 +24,7 @@ printf:
 	push rdi
 	push rax
 	push rcx
+	call MutexLock
 
 	mov ecx, 8
 
@@ -184,6 +204,7 @@ printf:
 		pop rcx
 		pop rax
 		pop rdi	
+		call UnlockMutex
 		ret
 
 
@@ -228,10 +249,12 @@ setScreenAttributes:
 
 global clearScreen
 clearScreen:
+	push qword UnlockMutex
 	push rax
 	push rcx
 	push rdi
 
+	call MutexLock
 	mov edi, dword[ PageBase ]
 	mov eax, dword[ WriteBuffer ]
 	cmp edi, eax
@@ -263,8 +286,9 @@ clearScreen:
 global scrollScreen
 ;eax scroll count
 scrollScreen:
+	push qword UnlockMutex
 	push rdi
-
+	call MutexLock
 
 	test al, 0x80
 	jz .downScroll
@@ -305,7 +329,9 @@ scrollScreen:
 
 global endl
 endl:
+	push qword UnlockMutex
 	push rax
+	call MutexLock
 	mov eax, dword[ WriteBuffer ]
 	push rdx
 	push rbx

@@ -1,5 +1,6 @@
-
 %include "exception.inc"
+%include "MPConfigTable.inc"
+%include "processor.inc"
 
 %define PRESENT_FLAG 0x80	; Flags for an IDT_ENTRY
 %define DPL_RING3 0x60
@@ -140,16 +141,56 @@ InitialiseAPICModule:
 	.foundMPTable:
 		add esp, 8
 		mov dword[ MPFloatingPointTable ], edi
-		mov edi, dword[ edi + 4 ]	
+		mov edi, dword[ edi + FloatingPointTable.mp_config_addr ]	
 		
 		or edi, edi
 		jz .noAPIC
 		
 		mov dword[ MPTableAddress ], edi
 
-		mov edi, dword[ edi + 0x24 ]
-		mov dword[ APIC_BASE ], edi
+		mov eax, dword[ edi + MPConfigTable.lapic_addr ]
+		mov dword[ APIC_BASE ], eax
+
+		movzx ecx, word[ edi + MPConfigTable.entry_count ]	
+
+		add edi, MPConfigTable.entry_begin
+		
+	.searchForIOAPIC:
+		cmp byte[ edi ], MPCONFIG_IOAPIC_SIG
+		jz .foundIOAPIC
+		
+		cmp byte[ edi ], MPCONFIG_PROCESSOR_SIG
+		jz .foundProcessor
+
+		add edi, 8
+	.nextEntry:
+		sub ecx, 1
+		jnz .searchForIOAPIC
+		jmp .endIt
 	
+	.foundProcessor:
+		mov al, byte[ edi + MPConfigEntryProcessor.cpu_flags ]	
+		test al, 1
+		jz .nextEntry
+
+		add dword[ EstimatedProcCount ], 1
+		add edi, 20
+		jmp .nextEntry		
+
+	.foundIOAPIC:
+		mov eax, dword[ edi + MPConfigEntryIOApic.address ]
+		push rbx
+		mov ebx, dword[ IOAPIC_COUNT ]
+		mov dword[ IOAPIC_BASE + ebx ], eax
+		add ebx, 4
+		mov dword[ IOAPIC_COUNT ], ebx
+		pop rbx
+		add edi, 8
+		jmp .nextEntry
+
+	.endIt:
+		mov eax, dword[ EstimatedProcCount ]
+		call setEstimatedProcessorCount
 		pop rcx
 		pop rdi
 		pop rax
@@ -310,8 +351,11 @@ startAllAPs:
 	
 
 APIC_BASE dd 0
+IOAPIC_BASE dd 0, 0, 0, 0	; Support for 4 IO-APICs
+IOAPIC_COUNT dd 0
 MPFloatingPointTable dd 0
 MPTableAddress dd 0
+EstimatedProcCount dd 0
 ErrNoAPIC db 'Module: apic.elf Error: PC has no local APIC!',0
 IDT_LIMIT dw (256*16)-1
 IDT_Base dq 0

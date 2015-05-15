@@ -14,6 +14,10 @@ dd FLAGS
 dd CHECKSUM
 %define STACK_BASE_ADDR  0x400000
 %define GDT_BASE 0x800
+%define gdt_limit 0x1500
+%define gdt_base 0x1502
+extern kernel_start
+extern kernel_end
 
 
 [BITS 32]
@@ -57,6 +61,8 @@ _start:
 
 	xor eax, eax		;Set up new gdt to ensure transparence as well as enable 64 bit segment descriptors
 
+	mov word[ gdt_limit ], 40
+	mov dword[ gdt_base ], GDT_BASE
 	mov dword[ GDT_BASE + 0 ], eax		; Null Descriptor
 	mov dword[ GDT_BASE + 4 ], eax
 
@@ -186,63 +192,50 @@ LongMode:
 	mov ss, ax
 	mov gs, ax
 
-	mov al, COLOR_PAIR( COLOR_BLACK, COLOR_WHITE )
-	call setScreenAttributes
+	VSetScreenAttributes COLOR_PAIR( COLOR_BLACK, COLOR_WHITE )
 
 	call clearScreen
 
-
 	call InitialisePhysMem
 
-	xor rdi, rdi
-	mov ecx, 0x2000
+	mov edi, kernel_start
+	mov ecx, kernel_end
+	sub ecx, edi
 	call BlockMemory
-
-	call DebugMemoryAllocation
-
-	mov rax, 0x1000
-	mov rsi, NeedMem
-	call AllocMemory
-	push rsi
-
-	mov rax, 0x3000
-	mov rsi, NeedMem
-	call AllocMemory
-	push rsi
-
-	call DebugMemoryAllocation
-
-	pop rax
-	call FreeMemory
-
-	pop rax
-	call FreeMemory
-
-	mov rdi, 0x7C00
-	mov ecx, 2048
-	call BlockMemory
-
-	call DebugMemoryAllocation
-
-	mov rax, 0x30000
-	mov rsi, NeedMem
-	call AllocMemory
-
-	call PrintAllHeads
-	jmp $
 
 	call InitialiseAPICModule
 
-	mov edi, 0x1000	
-	mov eax, gdt_limit
-	call setUpMulticoreEnvironment
+	call picRemapIRQ
 
-	mov eax, 0x1000
-	call startAllAPs
+	APicMapInterrupts 0xFFFF
+
+	mov eax, gdt_limit
+	call setUpAllCores
+
+	mov ebx, 0x100000
+	.Loop:
+		sub ebx, 1
+		jnz .Loop
+
+	
+	call GetCoreCount
+	
+	VPrintf HelloCores, rax
+	
+	call getEstimatedProcessorCount
+	
+	VPrintf HelloCores, rax
+
+	VSetScreenAttributes COLOR_PAIR( COLOR_BLACK , COLOR_LIGHTGREEN )
+	
+
+	call endl
+
+	call PrintAllHeads
+
+	call updateScreen	
 	jmp $
 	
 
-NeedMem db 'Needed Mem',0
-gdt_limit dw 40
-gdt_base dd GDT_BASE
+HelloCores db 'Started %d Cores', 0x13,0
 NoLongModeMsg db 0x13,'Long mode %x isi %d not available the OS can not boot please restart the PC', 0

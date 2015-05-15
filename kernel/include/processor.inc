@@ -1,1 +1,4 @@
-extern setUpMulticoreEnvironment
+extern setUpAllCores
+extern GetCoreCount
+extern setEstimatedProcessorCount
+extern getEstimatedProcessorCount

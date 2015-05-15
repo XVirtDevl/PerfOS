@@ -2,7 +2,7 @@
 %include "exception.inc"
 %include "video.inc"
 
-%define FIRST_USABLE_ADDR 0x900
+%define FIRST_USABLE_ADDR 0x2000
 
 struc PhysMemMapEntry
 	.length resq 1
@@ -87,11 +87,53 @@ InitialisePhysMem:
 		add rbx, ENTRY_HEADER_SIZE
 		jmp .BuildSelector
 
+
+
+align 8
+MUTEX_MEM_MANAGER dd 0
+
+
+LockMutex:
+	push rax
+	mov al, 1
+	
+	.again:
+		xchg al, byte[ MUTEX_MEM_MANAGER ]
+		test al, al
+		jnz .again
+	pop rax
+	ret
+
+UnlockMutex:
+	mov byte[ MUTEX_MEM_MANAGER ], 0
+	ret
+
+
+global AllocMemoryAligned
+; rax = size, rcx = Mask forbidden bits, rsi = usage
+AllocMemoryAligned:
+	push qword UnlockMutex
+	push rdx
+	push rcx
+
+	mov rdx, rcx		; if ecx = 0xFFF then edx = 0xFFF1000
+	not rdx
+
+	push rsi		; ecx = 0xFFF f. e. will create a page at boundary 0x1000
+	jmp AllocMemory.alignedEnter
+
 global AllocMemory
 ;rax = size, rsi = usage( muste be != 0 )
-AllocMemory:	
+AllocMemory:
+	push qword UnlockMutex	
+	push rdx
+	push rcx
 	push rsi	
+	xor ecx, ecx	; Boundary = 0 means no forbidden bits means no Boundary
+	
+	.alignedEnter:
 
+	call LockMutex
 	mov rdi, qword[ FirstHead ]
 	or rdi, rdi
 	jz .fatal_no_mem
@@ -121,14 +163,104 @@ AllocMemory:
 	
 	.perfectHit:
 		pop rsi
+		pop rcx
+		pop rdx
 		mov qword[ rdi + PhysMemMapEntry.usage ], rsi
+		mov rsi, rdi
+		add rsi, ENTRY_HEADER_SIZE
 		ret
 	
+	.CutUpperMem:
+		sub rax, ENTRY_HEADER_SIZE
+		add rsi, rax
+		mov qword[ rdi + PhysMemMapEntry.length ], rax
+		pop rdx
+		mov qword[ rdi + PhysMemMapEntry.usage ], rdx
+
+		sub rbx, rax
+		sub rbx, ENTRY_HEADER_SIZE
+		mov qword[ rsi + PhysMemMapEntry.length ], rbx
+		mov rdx, rsi
+		mov qword[ rsi + PhysMemMapEntry.usage ], 0
+		xchg rdx, qword[ rdi + PhysMemMapEntry.nextSelector ]
+		mov qword[ rsi + PhysMemMapEntry.lastSelector ], rdi
+		mov qword[ rsi + PhysMemMapEntry.nextSelector ], rdx
+
+		add rsi, ENTRY_HEADER_SIZE
+		pop rcx
+		pop rdx
+		ret
 
 	.bigEnough:
-		mov rsi, rdi
 		mov rbx, qword[ rdi + PhysMemMapEntry.length ]
+		
+		or rcx, rcx
+		jz .dontmind
 
+		mov rsi, rdi
+		add rsi, ENTRY_HEADER_SIZE
+		test rsi, rcx
+		jz .CutUpperMem
+
+		add rsi, rcx
+		add rsi, 1
+		and rsi, rdx	; rsi = address on boundary above rdi
+
+		sub rsi, rdi	; rsi = difference between that address and rdi
+		sub rsi, ENTRY_HEADER_SIZE	; rsi = offset in rdis mem
+		push rax
+		add rax, rsi  ; rax = size + HEADER_ENTRY_SIZE + offset in rdi
+
+		sub rbx, rax
+		pop rax
+		js .selectNextEntry
+
+		; rbx = remaining length
+		mov rdx, rbx
+
+		mov qword[ rdi + PhysMemMapEntry.length ], rsi
+		mov rbx, qword[ rdi + PhysMemMapEntry.nextSelector ]
+	
+		add rsi, rdi	; rsi = address of header
+		mov qword[ rsi + PhysMemMapEntry.nextSelector ], rbx
+		
+		pop rbx
+		mov qword[ rsi + PhysMemMapEntry.lastSelector ], rdi
+		mov qword[ rsi + PhysMemMapEntry.usage ], rbx
+		mov qword[ rdi + PhysMemMapEntry.nextSelector ], rsi
+		sub rax, ENTRY_HEADER_SIZE
+		mov qword[ rsi + PhysMemMapEntry.length ], rax
+		
+		cmp rdx, 256
+		jns .NewHead
+
+		add qword[ rsi + PhysMemMapEntry.length ], rax
+		
+		pop rcx
+		pop rdx
+		add rsi, ENTRY_HEADER_SIZE
+		ret
+		
+		.NewHead:
+			mov rdi, rsi
+			add rdi, rax
+			add rdi, ENTRY_HEADER_SIZE
+			
+			mov qword[ rdi + PhysMemMapEntry.length ], rdx
+			mov qword[ rdi + PhysMemMapEntry.usage ], 0
+			mov rdx, rdi
+			mov qword[ rdi + PhysMemMapEntry.lastSelector ], rsi
+			xchg rdx, qword[ rsi + PhysMemMapEntry.nextSelector ]
+			mov qword[ rdi + PhysMemMapEntry.nextSelector ], rdx
+	
+			add rsi, ENTRY_HEADER_SIZE
+			pop rcx
+			pop rdx
+			ret
+	
+		
+
+	.dontmind:
 		sub rbx, rax ; rax = size + HEADER_ENTRY_SIZE  => 
 		cmp rbx, 256
 		js .perfectHit
@@ -153,7 +285,8 @@ AllocMemory:
 	.NoNeedToEnter:
 		mov qword[ rdi + PhysMemMapEntry.nextSelector ], rsi
 		add rsi, ENTRY_HEADER_SIZE	
-
+		pop rcx
+		pop rdx
 		ret	
 		
 ;00 | 20	| 100 | 120
@@ -163,10 +296,12 @@ AllocMemory:
 
 global PrintAllHeads
 PrintAllHeads:
+	push qword UnlockMutex
 	push rsi
 	push rdi
-	mov rdi, qword[ FirstHead ]
-	
+	call LockMutex
+	mov rdi, qword[ FirstHead ]	
+
 	or rdi, rdi
 	jz AllocMemory.fatal_no_mem
 
@@ -202,11 +337,13 @@ PrintAllHeads:
 	
 global DebugMemoryAllocation
 DebugMemoryAllocation:
+	push qword UnlockMutex
 	push rdi
 	push rsi
 	push rax
 	push rbx
 	push rcx
+	call LockMutex
 
 	mov rdi, qword[ FirstHead ]
 	
@@ -263,12 +400,14 @@ DebugMemoryAllocation:
 global FreeMemory
 ;rax = address
 FreeMemory:
+	push qword UnlockMutex
 	push rsi
 	push rdi
 	push rbx
 
 	sub rax, ENTRY_HEADER_SIZE
 	
+	call LockMutex
 	mov rdi, qword[ rax + PhysMemMapEntry.nextSelector ]
 	mov rsi, qword[ rax + PhysMemMapEntry.lastSelector ]
 
@@ -378,9 +517,11 @@ FreeMemory:
 global BlockMemory
 ;rdi = address, rcx = size
 BlockMemory:
+	push qword UnlockMutex
 	push rsi
 	push rax
 	push rbx
+	call LockMutex
 	mov rsi, qword[ FirstHead ]
 	
 	or rsi, rsi
