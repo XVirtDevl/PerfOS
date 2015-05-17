@@ -6,7 +6,7 @@ struc multiboot
 	.commandline resd 1
 	.mod_count resd 1
 	.mod_addr resd 1
-	.sys resd 1
+	.sys resd 4
 	.mmap_length resd 1
 	.mmap_addr resd 1
 	.gdtr_addr resd 1

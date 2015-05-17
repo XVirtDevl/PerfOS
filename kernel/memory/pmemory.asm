@@ -2,6 +2,12 @@
 %include "exception.inc"
 %include "video.inc"
 
+debug_msg db 'Still alive arg  = %d', 0x13, 0
+%macro DEBUG 1
+	VPrintf debug_msg, %1
+	call updateScreen
+%endmacro
+
 %define FIRST_USABLE_ADDR 0x2000
 
 struc PhysMemMapEntry
@@ -13,6 +19,7 @@ endstruc
 %define ENTRY_HEADER_SIZE 32
 
 struc E820Entry
+	.entry_len resd 1
 	.BaseAddress resq 1
 	.Length resq 1
 	.Type resd 1
@@ -27,7 +34,8 @@ InitialisePhysMem:
 	jnz .parseMemMap
 
 
-	.NoMemMap:
+	.NoMemMap
+		jmp $
 		push qword ErrNoMemmap
 		call FatalError
 		jmp $
@@ -68,13 +76,15 @@ InitialisePhysMem:
 		push rax
 		or rbx, rbx
 		jz .selectNextEntry
-
+		
 		mov qword[ rbx + PhysMemMapEntry.nextSelector ], rax
 	.selectNextEntry:
-
-		add esi, 20
-		sub ecx, 20
-		jnz .Overwrite	
+			
+		mov eax, dword[ esi + E820Entry.entry_len ]
+		add eax, 4
+		add esi, eax
+		sub ecx, eax
+		ja .Overwrite	
 		
 		pop rax
 		ret
@@ -86,8 +96,6 @@ InitialisePhysMem:
 		mov qword[ FirstHead ], rax
 		add rbx, ENTRY_HEADER_SIZE
 		jmp .BuildSelector
-
-
 
 align 8
 MUTEX_MEM_MANAGER dd 0

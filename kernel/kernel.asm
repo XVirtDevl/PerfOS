@@ -36,7 +36,7 @@ _start:
 	
 	.RelocateDone:	
 		mov esi, dword[ MultibootStrucAddr + multiboot.mmap_addr ]	;MultibootStrucAddrs value is 0x500 so the memory map of int 15h 0xe820 is relocated too
-		
+	
 		mov dword[ MultibootStrucAddr + multiboot.mmap_addr ], MemMapAddr ;Memmap will be at 0x600 from now on
 		
 		or esi, esi
@@ -152,7 +152,7 @@ InitialisePaging:
 		mov dword[ edi ], eax		; First PML4 entry maps 512GB by default
 		mov dword[ edi + 4 ], ebx	; zero out upper half
 		
-		mov ecx, 4			; We need 4 entries to identity map all 4 GB memory
+		mov ecx, 32			; We need 4 entries to identity map all 4 GB memory
 		add edi, 0x1000			
 		push edi
 		.MapAll:
@@ -167,7 +167,7 @@ InitialisePaging:
 		pop edi
 		add edi, 0x1000
 		mov eax, 0x8B
-		mov ecx, 2048
+		mov ecx, 32*512
 			
 
 		.Map:
@@ -175,6 +175,7 @@ InitialisePaging:
 			mov dword[ edi + 4 ], ebx
 			add edi, 8
 			add eax, 0x200000
+			adc ebx, 0
 			sub ecx, 1
 			jnz .Map
 
@@ -195,8 +196,13 @@ LongMode:
 	VSetScreenAttributes COLOR_PAIR( COLOR_BLACK, COLOR_WHITE )
 
 	call clearScreen
-
+	
 	call InitialisePhysMem
+
+	VPrintf Message, 100, 200
+	
+	call updateScreen
+	
 
 	mov edi, kernel_start
 	mov ecx, kernel_end
@@ -212,7 +218,7 @@ LongMode:
 	mov eax, gdt_limit
 	call setUpAllCores
 
-	mov ebx, 0x100000
+	mov ebx, 0x1000000
 	.Loop:
 		sub ebx, 1
 		jnz .Loop
@@ -235,7 +241,8 @@ LongMode:
 
 	call updateScreen	
 	jmp $
-	
 
+
+Message db 'Maker: %X || %X',0x13,0
 HelloCores db 'Started %d Cores', 0x13,0
 NoLongModeMsg db 0x13,'Long mode %x isi %d not available the OS can not boot please restart the PC', 0

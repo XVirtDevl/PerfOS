@@ -1,6 +1,6 @@
 %include "elf64.inc"
 %include "multiboot.inc"
-%define mmap_addr 0x600
+%define mmap_addr 0x2004
 org 0x7C00
 [BITS 16]
 _start:
@@ -28,29 +28,40 @@ int 0x13
 jc fatal_error
 
 mov dword[ MultibootStrucAddr + multiboot.flags ], 64
-mov dword[ MultibootStrucAddr + multiboot.mmap_addr ], 0x600
+mov dword[ MultibootStrucAddr + multiboot.mmap_addr ], mmap_addr
 
 mov eax, 0xE820
 mov edx, 0x534D4150 
 xor ebx, ebx
-mov ecx, 20
-mov di, mmap_addr
+mov ecx, 24
+mov di, mmap_addr+4
 clc
 int 0x15
 jc fatal_error
 
+sub di, 4
+mov dword[ di ], ecx
+add di, 4
+
 .again_mmap:
+
 mov edx, 0xE820
 xchg eax, edx
-mov ecx, 20
-add di, 20
+add di, cx
+add di, 4
 int 0x15
+pushf
+sub di, 4
+mov dword[ di ], ecx
+add di, 4
+popf
 jc .next
 
 or ebx, ebx
 jnz .again_mmap
 
 .next:
+	sub di, 4
 	sub di, mmap_addr
 	mov word[ MultibootStrucAddr + multiboot.mmap_length ], di
 
