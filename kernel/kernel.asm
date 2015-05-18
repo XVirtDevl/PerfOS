@@ -1,7 +1,7 @@
 %define FLAGS 3
 %define MAGIC 0x1BADB002
 %define CHECKSUM -(MAGIC+FLAGS)
-%include "video.inc"
+%include "console.inc"
 %include "multiboot.inc"
 %include "apic.inc"
 %include "memory.inc"
@@ -175,7 +175,7 @@ InitialisePaging:
 			mov dword[ edi + 4 ], ebx
 			add edi, 8
 			add eax, 0x200000
-			adc ebx, 0
+adc ebx, 0
 			sub ecx, 1
 			jnz .Map
 
@@ -193,15 +193,15 @@ LongMode:
 	mov ss, ax
 	mov gs, ax
 
-	VSetScreenAttributes COLOR_PAIR( COLOR_BLACK, COLOR_WHITE )
+	VSetTextAttributes COLOR_PAIR( COLOR_BLACK, COLOR_WHITE )
 
-	call clearScreen
+	call ClearScreen
 	
 	call InitialisePhysMem
 
 	VPrintf Message, 100, 200
 	
-	call updateScreen
+	call UpdateScreen
 	
 
 	mov edi, kernel_start
@@ -232,17 +232,15 @@ LongMode:
 	
 	VPrintf HelloCores, rax
 
-	VSetScreenAttributes COLOR_PAIR( COLOR_BLACK , COLOR_LIGHTGREEN )
+	VSetTextAttributes COLOR_PAIR( COLOR_BLACK , COLOR_LIGHTGREEN )
 	
-
-	call endl
 
 	call PrintAllHeads
 
-	call updateScreen	
+	call UpdateScreen	
 	jmp $
 
 
-Message db 'Maker: %X || %X',0x13,0
-HelloCores db 'Started %d Cores', 0x13,0
+Message db 'Maker: %X || %X',CONSOLE_NEWCOLOR_CHAR, COLOR_PAIR(COLOR_RED,COLOR_BLACK),0xA,0
+HelloCores db 'Started %d Cores', 0xA,0
 NoLongModeMsg db 0x13,'Long mode %x isi %d not available the OS can not boot please restart the PC', 0

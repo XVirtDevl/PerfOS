@@ -1,11 +1,11 @@
 %include "multiboot.inc"
 %include "exception.inc"
-%include "video.inc"
+%include "console.inc"
 
 debug_msg db 'Still alive arg  = %d', 0x13, 0
 %macro DEBUG 1
 	VPrintf debug_msg, %1
-	call updateScreen
+	call UpdateScreen
 %endmacro
 
 %define FIRST_USABLE_ADDR 0x2000
@@ -34,7 +34,7 @@ InitialisePhysMem:
 	jnz .parseMemMap
 
 
-	.NoMemMap
+	.NoMemMap:
 		jmp $
 		push qword ErrNoMemmap
 		call FatalError
@@ -336,8 +336,8 @@ PrintAllHeads:
 		or rdi, rdi
 		jnz .looped
 
-		call updateScreen
-	
+		call UpdateScreen
+
 		pop rdi
 		pop rsi
 		ret
@@ -394,10 +394,9 @@ DebugMemoryAllocation:
 		call printf
 		add esp, 16
 
-		call updateScreen
-	
-		
-		pop rcx	
+		call UpdateScreen
+
+		pop rcx
 		pop rbx
 		pop rax
 		pop rsi
@@ -730,9 +729,9 @@ BlockMemory:
 		
 	
 FreeMemoryMsg db 'Free memory',0
-DebugHead db 0x13,'Used memory table ver 0.1.0',0x13,' Base address       | Length             | Usage',0
-DebugMsg db 0x13,' %X | %X | %s',0
-DebugEnd db 0x13,' Free memory: %X used memory: %X',0
+DebugHead db 0xA,'Used memory table ver 0.1.0',0xA,' Base address       | Length             | Usage',0
+DebugMsg db 0xA,' %X | %X | %s',0
+DebugEnd db 0xA,' Free memory: %X used memory: %X',0
 FirstHead dq 0
 ErrMemMapEntryOverride db 'Module: pmemory.elf Error: The memory description block is corrupted!',0
 ErrNoMemmap db 'Module: pmemory.elf Error: The OS cannot determinate the amount of RAM usable!',0

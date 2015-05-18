@@ -1,4 +1,4 @@
-%include "video.inc"
+%include "console.inc"
 
 
 global FatalError
@@ -22,15 +22,14 @@ FatalError:
 	push r15
 	
 
-	mov al, 0x1F
-	call setScreenAttributes
+	VSetTextAttributes COLOR_PAIR( COLOR_BLUE, COLOR_WHITE )
 
-	call clearScreen	
+	call ClearScreen
 
 	mov esi, TypicalFatalError
 	call printf
 
-	call updateScreen	
+	call UpdateScreen
 	jmp $
 
 TypicalFatalError db '      Fatal error cannot proceed! Error: %s',0x13,' rax = %X  rbx = %X',0x13,' rcx = %X  rdx = %X', 0x13, ' rsi = %X  rdi = %X', 0x13
