@@ -2,6 +2,12 @@
 
 GUARDED_INCLUDE CONSOLE_EXPORT_FUNCTIONALITY, "console.inc"	; Include the file "console.inc". But exclude the ifdef CONSOLE_EXPORT_FUNCTIONALITY Block
 
+global Console@64_PolymorphicList
+Console@64_PolymorphicList:			; The following functions depend heavily on the used flags in BufferedOutputDesc
+	.scroll_screen dq ScrollScreen 		; so they will become polymorphic to ease the acces and debug of these functions
+	.update_screen dq UpdateScreen
+	.printf dq printf
+
 
 global ClearScreen	; Declared global as it does not depend that heavily on the flags in BufferedOutputDecsc
 ; IN: none; OUT: none
@@ -28,21 +34,14 @@ ClearScreen:
 global ScrollScreen
 ; eax = scroll amount
 ScrollScreen:
+	cmp eax, dword[ ScreenDimension.y_resolution ]			; If the screen should be more scrolled then there are lines, then clear the screen
+	jns ClearScreen							; Because there is nothing on the stack now, ClearScreen can use the same return address as this function
+
 	push rbx							; Save reg
 
 	mov ebx, dword[ ScreenDimension.x_resolution ]
 	add ebx, ebx							; Calculate Bytes per line
 
-
-	test dword[ BufferedOutputDesc.flags ], CF_BUFFERED_OUTPUT	; Is there a buffered Output? Yes, handle it
-	jnz .buffered_scroll
-
-	add rsp, 8							; Hide rbx on the stack
-
-	cmp eax, dword[ ScreenDimension.y_resolution ]			; If the screen should be more scrolled then there are lines, then clear the screen
-	jns ClearScreen							; Because there is nothing on the stack now, ClearScreen can use the same return address as this function
-
-	sub rsp, 8 							; "Repush" rbx on the stack, the value of rbx shouldn't change at that time
 
 	push rcx
 	push rsi
@@ -57,8 +56,7 @@ ScrollScreen:
 	add rsi, rax
 	sub rcx, rax
 
-	shr ecx, 3
-	rep movsq
+	memcpy rdi, rsi, rcx
 
 	mov qword[ ScreenDimension.writeTo_address ], rdi
 
@@ -67,84 +65,7 @@ ScrollScreen:
 	shr ecx, 3
 	rep stosq
 
-	jmp .done
-
-	.buffered_scroll:
-		push rcx
-		test eax, 0x80000000
-		jnz .scroll_up
-
-		xor ecx, ecx
-
-	.reentry:
-		cmp eax, dword[ BufferedOutputDesc.remembered_lines ]
-		jns .reset_screen
-
-		test dword[ BufferedOutputDesc.flags ], CF_STAGE_IN_BUFFER_FOR_SCREEN
-		jz .dunno
-
-		push rsi
-		push rdi
-		mov rsi, qword[ BufferedOutputDesc.readFrom_address ]
-		mov rdi, qword[ BufferedOutputDesc.base_address ]
-
-		mul ebx
-		add rdi, qword[ BufferedOutputDesc.length ]
-
-		or ecx, ecx
-		jnz .scroll_up_cont
-
-		add rsi, rax
-
-		cmp rsi, rdi
-		js .doneIt
-
-		sub rsi, rdi
-		add rsi, qword[ BufferedOutputDesc.base_address ]
-
-	.doneIt:
-		mov qword[ BufferedOutputDesc.readFrom_address ], rsi
-	.done:
-		pop rdi
-		pop rsi
-		pop rcx
-		pop rbx
-		ret
-
-	.scroll_up:
-		not eax
-		add eax, 1
-		mov ecx, 1
-		jmp .reentry
-
-	.scroll_up_cont:
-		sub rsi, rax
-
-		cmp rsi, qword[ BufferedOutputDesc.base_address ]
-		jns .doneIt
-
-		sub rsi, qword[ BufferedOutputDesc.base_address ]
-		add rdi, rsi
-		mov rsi, rdi
-		jmp .doneIt
-
-	.reset_screen:
-		push rsi
-		push rdi
-		mov rdi, qword[ BufferedOutputDesc.base_address ]
-		mov qword[ BufferedOutputDesc.readFrom_address ], rdi
-		mov qword[ BufferedOutputDesc.writeTo_address ], rdi
-		mov rsi, rdi
-		mov rax, qword[ ScreenClearFixValue ]
-		mov ecx, dword[ ScreenDimension.screen_size_shift8 ]
-
-		rep stosq
-
-		jmp .doneIt
-
-	.dunno:
-		jmp $
-
+	
 
 ConvertNumberToDecStr64:
 ;IN: rax = number, rdi = destBuffer( at least 27 Byte available )
