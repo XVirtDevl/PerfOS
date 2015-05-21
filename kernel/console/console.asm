@@ -2,7 +2,8 @@
 
 GUARDED_INCLUDE CONSOLE_EXPORT_FUNCTIONALITY, "console.inc"	; Include the file "console.inc". But exclude the ifdef CONSOLE_EXPORT_FUNCTIONALITY Block
 
-global ClearScreen
+
+global ClearScreen	; Declared global as it does not depend that heavily on the flags in BufferedOutputDecsc
 ; IN: none; OUT: none
 ClearScreen:
 	push rdi						; Save registers
