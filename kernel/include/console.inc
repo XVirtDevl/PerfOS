@@ -1,49 +1,186 @@
+%include "debug.inc"
+
+
 %ifndef CONSOLE_EXPORT_FUNCTIONALITY
 %define CONSOLE_EXPORT_FUNCTIONALITY
 
+%include "metaprogramming.inc"
+
+%xdefine MODULE_NAME CONSOLE
+
+extern ScrollScreen
+DISABLE_NORMAL_FUNC_CALL ScrollScreen
+%macro CScrollScreen 1
+	mov eax, %1
+
+	CHECK_TRACE %??, MODULE_NAME
+
+	%ifdef TRACE
+		%warning Scrolling screen by %1
+	%endif
+
+	OUT_OF_ORDER_CALL ScrollScreen
+
+%endmacro
+
+extern SetAutoscroll
+DISABLE_NORMAL_FUNC_CALL SetAutoscroll
+%macro CSetAutoscroll 1
+	mov eax, %1
+
+	CHECK_TRACE %??, MODULE_NAME
+
+	%ifdef TRACE
+		%if %1 = 0
+			%warning Screen autoscroll is set to off
+		%else
+			%warning Screen autoscroll is set to on
+		%endif
+	%endif
+
+	OUT_OF_ORDER_CALL SetAutoscroll
+
+%endmacro
+
 extern SetScreenDimensions
+DISABLE_NORMAL_FUNC_CALL SetScreenDimensions
+%macro CSetScreenDimensions 4
+	mov rax, %1
+	mov bh, %2
+	mov bl, %3
+	mov rcx, %4
+
+	CHECK_TRACE %??, MODULE_NAME
+
+	%ifdef TRACE
+	%warning Base address = %1, Y Resolution = %2, X Resolution = %3, Screen length = %4 :: File: __FILE__ :-: Line: __LINE__
+	%endif
+
+	OUT_OF_ORDER_CALL SetScreenDimensions
+%endmacro
 
 extern SetTextAttributes
-%macro VSetTextAttributes 1
+DISABLE_NORMAL_FUNC_CALL SetTextAttributes
+%macro CSetTextAttributes 1
 	mov ah, %1
-	call SetTextAttributes
+
+	CHECK_TRACE %??, MODULE_NAME
+
+	%ifdef TRACE
+	%warning New Text attributes = %1
+	%endif
+
+	OUT_OF_ORDER_CALL SetTextAttributes
 %endmacro
 
 extern SetBufferedOutputBuffer
+DISABLE_NORMAL_FUNC_CALL SetBufferedOutputBuffer
+%macro CSetBufferedOutputBuffer 2
+	mov rdi, %1
+	mov rcx, %2
+
+	CHECK_TRACE %??, MODULE_NAME
+
+	%ifdef TRACE
+		%warning Buffered output buffer address = %1, Size = %2
+	%endif
+
+	OUT_OF_ORDER_CALL SetBufferedOutputBuffer
+%endmacro
+
+
 extern SetBufferedOutputFlags
+DISABLE_NORMAL_FUNC_CALL SetBufferedOutputFlags
+%macro CSetBufferedOutputFlags 1
+
+	mov eax, %1
+
+	CHECK_TRACE %??, MODULE_NAME
+
+	%ifdef TRACE
+		%warning New buffered output flags = %1
+	%endif
+
+	OUT_OF_ORDER_CALL SetBufferedOutputFlags
+%endmacro
+
 extern UpdateScreen
+DISABLE_NORMAL_FUNC_CALL UpdateScreen
+%macro CUpdateScreen 0
+
+	CHECK_TRACE %??, MODULE_NAME
+
+	%ifdef TRACE
+		%warning Updating screen, streaming datat in buffer to the screen
+	%endif
+
+	OUT_OF_ORDER_CALL UpdateScreen
+
+%endmacro
 
 
 extern ConvertNumberToHexStr32
-
-%macro IntToHexStr32 2
+DISABLE_NORMAL_FUNC_CALL ConvertNumberToHexStr32
+%macro CIntToHexStr32 2
 	mov rdi, %1
 	mov rax, %2
-	call ConvertNumberToHexStr32
+
+	CHECK_TRACE %??, MODULE_NAME
+
+	%ifdef TRACE
+		%warning Buffer address( at least 11 Bytes ) = %1 Number = %2
+	%endif
+	OUT_OF_ORDER_CALL ConvertNumberToHexStr32
 %endmacro
 
 extern ConvertNumberToHexStr64
-
-
-%macro IntToHexStr64 2
+DISABLE_NORMAL_FUNC_CALL ConvertNumberToHexStr64
+%macro CIntToHexStr64 2
 	mov rdi, %1
 	mov rax, %2
-	call ConvertNumberToHexStr64
+	
+	CHECK_TRACE %??, MODULE_NAME
+
+	%ifdef TRACE
+		%warning Buffer address( at least 19 Bytes ) = %1 Number = %2
+	%endif
+	OUT_OF_ORDER_CALL ConvertNumberToHexStr64
 %endmacro
 
 extern printf
-%macro VPrintf 1-*
+DISABLE_NORMAL_FUNC_CALL printf
+%macro CPrintf 1-*
 	mov rsi, %1
+
+	CHECK_TRACE %??, MODULE_NAME
+
+	%ifdef TRACE
+	%warning String address: %1
+	%endif
 	%rep %0-1
 		%rotate -1
+		%ifdef TRACE
+		%warning Pushed on the stack : %1
+		%endif
 		push %1
 	%endrep
-	call printf
+	OUT_OF_ORDER_CALL printf
 	add esp, (%0-1)*8
-
 %endmacro
 
 extern ClearScreen
+DISABLE_NORMAL_FUNC_CALL ClearScreen
+%macro CClearScreen 0
+
+	CHECK_TRACE %??, MODULE_NAME
+
+	%ifdef TRACE
+		%warning clearing screen but not the buffer!
+	%endif
+
+	OUT_OF_ORDER_CALL ClearScreen
+%endmacro
+
 
 %endif
 
@@ -76,3 +213,4 @@ extern ClearScreen
 
 
 %define CF_NO_BUFFERED_OUTPUT 0
+

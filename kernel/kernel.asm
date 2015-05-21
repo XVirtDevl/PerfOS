@@ -3,9 +3,6 @@
 %define CHECKSUM -(MAGIC+FLAGS)
 %include "console.inc"
 %include "multiboot.inc"
-%include "apic.inc"
-%include "memory.inc"
-%include "processor.inc"
 
 section multiboot
 align 4
@@ -19,6 +16,7 @@ dd CHECKSUM
 extern kernel_start
 extern kernel_end
 
+%define BOOTUP_PML4_ADDR 0x300000
 
 [BITS 32]
 section .text
@@ -175,7 +173,7 @@ InitialisePaging:
 			mov dword[ edi + 4 ], ebx
 			add edi, 8
 			add eax, 0x200000
-adc ebx, 0
+			adc ebx, 0
 			sub ecx, 1
 			jnz .Map
 
@@ -193,54 +191,35 @@ LongMode:
 	mov ss, ax
 	mov gs, ax
 
-	VSetTextAttributes COLOR_PAIR( COLOR_BLACK, COLOR_WHITE )
+	CSetTextAttributes COLOR_PAIR( COLOR_BLACK, COLOR_WHITE )
 
-	call ClearScreen
-	
-	call InitialisePhysMem
+	CClearScreen
 
-	VPrintf Message, 100, 200
-	
-	call UpdateScreen
-	
+	CSetBufferedOutputBuffer 0x700000, 0x2000
 
-	mov edi, kernel_start
-	mov ecx, kernel_end
-	sub ecx, edi
-	call BlockMemory
+	CSetBufferedOutputFlags CF_BUFFERED_OUTPUT|CF_STAGE_IN_BUFFER_FOR_SCREEN
 
-	call InitialiseAPICModule
+	.printLoop:
+		mov ebx, 0x10000000
 
-	call picRemapIRQ
+		.okay:
+			sub ebx, 1
+			jnz .okay
 
-	APicMapInterrupts 0xFFFF
+		CPrintf TestSentence, qword[ Dr ]
+		add dword[ Dr ], 1 
 
-	mov eax, gdt_limit
-	call setUpAllCores
+		cmp dword[ Dr ], 50
+		jz .done
 
-	mov ebx, 0x1000000
-	.Loop:
-		sub ebx, 1
-		jnz .Loop
+		CUpdateScreen
+		jmp .printLoop
 
-	
-	call GetCoreCount
-	
-	VPrintf HelloCores, rax
-	
-	call getEstimatedProcessorCount
-	
-	VPrintf HelloCores, rax
-
-	VSetTextAttributes COLOR_PAIR( COLOR_BLACK , COLOR_LIGHTGREEN )
-	
-
-	call PrintAllHeads
-
-	call UpdateScreen	
+	.done:
+		CScrollScreen -10
+		CUpdateScreen
 	jmp $
 
-
-Message db 'Maker: %X || %X',CONSOLE_NEWCOLOR_CHAR, COLOR_PAIR(COLOR_RED,COLOR_BLACK),0xA,0
-HelloCores db 'Started %d Cores', 0xA,0
-NoLongModeMsg db 0x13,'Long mode %x isi %d not available the OS can not boot please restart the PC', 0
+Dr dq 0
+TestSentence db 'Hello World turn %d', CONSOLE_NEWLINE_CHAR, 0
+NoLongModeMsg db 'Long mode %x isi %d not available the OS can not boot please restart the PC', 0
