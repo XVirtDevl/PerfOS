@@ -8,8 +8,11 @@
 
 %xdefine MODULE_NAME CONSOLE
 
-extern ScrollScreen
-DISABLE_NORMAL_FUNC_CALL ScrollScreen
+extern Console@64_PolymorphicList
+%define SCROLL_SCREEN 0
+%define UPDATE_SCREEN 8
+%define PRINTF 16
+
 %macro CScrollScreen 1
 	mov eax, %1
 
@@ -19,7 +22,7 @@ DISABLE_NORMAL_FUNC_CALL ScrollScreen
 		%warning Scrolling screen by %1
 	%endif
 
-	OUT_OF_ORDER_CALL ScrollScreen
+	call qword[ Console@64_PolymorphicList + SCROLL_SCREEN ]
 
 %endmacro
 
@@ -104,17 +107,14 @@ DISABLE_NORMAL_FUNC_CALL SetBufferedOutputFlags
 	OUT_OF_ORDER_CALL SetBufferedOutputFlags
 %endmacro
 
-extern UpdateScreen
-DISABLE_NORMAL_FUNC_CALL UpdateScreen
 %macro CUpdateScreen 0
-
 	CHECK_TRACE %??, MODULE_NAME
 
 	%ifdef TRACE
 		%warning Updating screen, streaming datat in buffer to the screen
 	%endif
 
-	OUT_OF_ORDER_CALL UpdateScreen
+	call qword[ Console@64_PolymorphicList + UPDATE_SCREEN ]
 
 %endmacro
 
@@ -147,8 +147,6 @@ DISABLE_NORMAL_FUNC_CALL ConvertNumberToHexStr64
 	OUT_OF_ORDER_CALL ConvertNumberToHexStr64
 %endmacro
 
-extern printf
-DISABLE_NORMAL_FUNC_CALL printf
 %macro CPrintf 1-*
 	mov rsi, %1
 
@@ -164,7 +162,7 @@ DISABLE_NORMAL_FUNC_CALL printf
 		%endif
 		push %1
 	%endrep
-	OUT_OF_ORDER_CALL printf
+	call qword[ Console@64_PolymorphicList + PRINTF ]
 	add esp, (%0-1)*8
 %endmacro
 

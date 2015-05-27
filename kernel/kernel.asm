@@ -209,7 +209,7 @@ LongMode:
 		CPrintf TestSentence, qword[ Dr ]
 		add dword[ Dr ], 1 
 
-		cmp dword[ Dr ], 50
+		cmp dword[ Dr ], 51
 		jz .done
 
 		CUpdateScreen

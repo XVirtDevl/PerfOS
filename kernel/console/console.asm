@@ -22,7 +22,7 @@ ClearScreen:
 	mov rax, qword[ ScreenClearFixValue ]
 	mov qword[ ScreenDimension.writeTo_address ], rdi	; reset write ptr to the screen
 
-	rep stosq
+	memset NUSED,NUSED,NUSED,PH_LOAD_NO_REGS|PH_SAVE_NO_REGS|PH_SHR_8
 
 
 	pop rcx							; Restore registers
@@ -31,7 +31,6 @@ ClearScreen:
 
 	ret
 
-global ScrollScreen
 ; eax = scroll amount
 ScrollScreen:
 	cmp eax, dword[ ScreenDimension.y_resolution ]			; If the screen should be more scrolled then there are lines, then clear the screen
@@ -39,8 +38,7 @@ ScrollScreen:
 
 	push rbx							; Save reg
 
-	mov ebx, dword[ ScreenDimension.x_resolution ]
-	add ebx, ebx							; Calculate Bytes per line
+	mov ebx, dword[ ScreenDimension.bytes_per_line ]
 
 
 	push rcx
@@ -56,17 +54,93 @@ ScrollScreen:
 	add rsi, rax
 	sub rcx, rax
 
-	memcpy rdi, rsi, rcx
+	memcpy NUSED,NUSED,NUSED, PH_SAVE_NO_REGS | PH_LOAD_NO_REGS|PH_DIVIDABLE_4
 
 	mov qword[ ScreenDimension.writeTo_address ], rdi
 
 	mov ecx, eax
 	mov rax, qword[ ScreenClearFixValue ]
-	shr ecx, 3
-	rep stosq
 
-	
+	memset NUSED,NUSED,NUSED, PH_SAVE_NO_REGS|PH_LOAD_NO_REGS|PH_DIVIDABLE_4
 
+	pop rdi
+	pop rsi
+	pop rcx
+	pop rbx
+
+	ret
+
+;eax = scroll amount can be scrolled up
+ScrollBufferBase:
+	push rcx
+	push rdi
+	test eax, 0x80000000
+	jnz .scrolling_up
+
+	xor ecx, ecx
+
+	.backup:
+		cmp eax, dword[ BufferedOutputDesc.remembered_lines ]
+		jns .clear_buffer
+
+		push rbx
+
+		mov ebx, dword[ ScreenDimension.bytes_per_line ]
+
+		xor edx, edx
+		mul ebx
+
+		pop rbx
+
+		or ecx, ecx
+		jnz .scroll_up
+
+
+		mov rdi, qword[ BufferedOutputDesc.base_address ]
+		mov rcx, qword[ BufferedOutputDesc.readFrom_address ]
+		add rdi, qword[ BufferedOutputDesc.length ]
+		add rcx, rax
+
+		cmp rcx, rdi
+		js .endfunc
+
+		sub rcx, rdi
+		add rcx, qword[ BufferedOutputDesc.base_address ]
+		jmp .endfunc
+
+	.scroll_up:
+		mov rcx, qword[ BufferedOutputDesc.readFrom_address ]
+		sub rcx, rax
+
+		cmp rcx, qword[ BufferedOutputDesc.base_address ]
+		jns .endfunc
+
+	.flip_over:
+		add rcx, qword[ BufferedOutputDesc.length ]
+
+		jmp .endfunc
+
+	.clear_buffer:
+		mov rdi, qword[ BufferedOutputDesc.base_address ]
+		memset NUSED, qword[ ScreenClearFixValue ], qword[ ScreenDimension.screen_size_shift8 ],  PH_LOAD_RAX | PH_LOAD_RCX | PH_SHR_8 | PH_SAVE_ALL
+		mov rcx, rdi
+		mov qword[ BufferedOutputDesc.writeTo_address ], rdi
+
+	.endfunc:
+		mov qword[ BufferedOutputDesc.readFrom_address ], rcx
+		pop rdi
+		pop rcx
+		ret
+
+	.scrolling_up:
+		not eax
+		mov ecx, 1
+		add eax, 1
+		jmp .backup
+
+
+
+global ConvertNumberToDecStr64
 ConvertNumberToDecStr64:
 ;IN: rax = number, rdi = destBuffer( at least 27 Byte available )
 	push rbx
@@ -275,8 +349,7 @@ printf:
 	.newline:
 		mov rax, rdi
 		sub rax, qword[ ebp - 24 ]				; Calculate the offset of rdi in the screen
-		mov ebx, dword[ ScreenDimension.x_resolution ]
-		add ebx, ebx						; Calculate x resolution *2 to get the bytes per line in ebx
+		mov ebx, dword[ ScreenDimension.bytes_per_line ]
 
 		push rdx
 		add rdi, rbx
@@ -316,8 +389,7 @@ printf:
 		push rsi
 		push rcx
 
-		mov ebx, dword[ ScreenDimension.x_resolution ]
-		add ebx, ebx
+		mov ebx, dword[ ScreenDimension.bytes_per_line ]
 
 		mov ecx, dword[ ScreenDimension.screen_size ]
 		mov rsi, qword[ ScreenDimension.base_address ]
@@ -370,9 +442,8 @@ printf:
 		jnz .restore_regs
 
 		mov rax, rdi
-		mov ebx, dword[ ScreenDimension.x_resolution ]
+		mov ebx, dword[ ScreenDimension.bytes_per_line ]
 		sub rax, qword[ BufferedOutputDesc.base_address ]
-		add ebx, ebx
 
 		add rdi, rbx
 
@@ -446,12 +517,7 @@ printf:
 		push rax
 		push rbx
 		push rdx
-
-		test byte[ BufferedOutputDesc.flags ], CF_STAGE_IN_BUFFER_FOR_SCREEN	; If the buffer should have the same format as the screen, then the screen print loop can be used!
-		jnz .printLoop
-
-	;TODO: Write a printer loop if the format of the buffer is not the same as the screen
-		jmp $
+		jmp .printLoop
 
 global SetAutoscroll
 ;IN: eax = 0 => on 1 => off
@@ -483,8 +549,7 @@ SetBufferedOutputBuffer:
 	xor rdx, rdx							; Prepare registers for division
 	mov eax, ecx
 
-	mov ebx, dword[ ScreenDimension.x_resolution ]
-	add ebx, ebx
+	mov ebx, dword[ ScreenDimension.bytes_per_line ]
 
 	div ebx								; Lines to remember written in eax
 
@@ -512,14 +577,17 @@ SetScreenDimensions:
 	mov qword[ ScreenDimension.base_address ], rax
 	mov byte[ ScreenDimension.x_resolution ], bl
 	mov byte[ ScreenDimension.y_resolution ], bh
+	xor bh, bh
+	shl bx, 1
+	mov word[ ScreenDimension.bytes_per_line ], bx
+
 	mov dword[ ScreenDimension.screen_size ], ecx
 	shr ecx, 3							; used for clear screen in combination with rep stosq
 	mov dword[ ScreenDimension.screen_size_shift8 ], ecx
 
 	push rdx
 	mov eax, dword[ BufferedOutputDesc.real_length ]			; Calculate how many lines will fit into the buffer
-	mov ebx, dword[ ScreenDimension.x_resolution ]
-	add ebx, ebx							; The doubled x resolution will give the length of a line in bytes
+	mov ebx, dword[ ScreenDimension.bytes_per_line ]
 	xor edx, edx
 	div ebx
 	pop rdx
@@ -532,110 +600,31 @@ SetScreenDimensions:
  
 	ret
 
-global UpdateScreen
-;IN: none OUT: none
+
+;IN: none OUT:none
 UpdateScreen:
-	test byte[ BufferedOutputDesc.flags ], CF_BUFFERED_OUTPUT		; Is there a buffered output?
-	jz .done								; No? Then everything is on the screen as it should
+	ret
 
-	test byte[ BufferedOutputDesc.flags ], CF_STAGE_IN_BUFFER_FOR_SCREEN	; Is the buffered output in the right format for the screen?
-	jnz .just_memcpy							; yes so it will only need a memcpy
-
-
-	push rdi								;Save fragil regs
-	push rax
+;IN: none OUT: none
+UpdateBufferedScreen:
+	; The buffer is already in the right format to get printed directly to the screen, so just perform a memcpy, because the size is a multiple of 8
+	; memcpy_size8 can be used
+	; There could be several problems: It is possible that the readfrom address needs to wrap around if the screen is divided
 	push rsi
-	push rcx
-	push rbx
-	push rdx
-
-	mov ah, byte[ TextAttributes ]						; Load text attributes
-	mov rdi, qword[ ScreenDimension.base_address ]
+	push rdi
 	mov rsi, qword[ BufferedOutputDesc.readFrom_address ]
-	mov rcx, qword[ ScreenDimension.screen_size ]
+	mov rdi, qword[ BufferedOutputDesc.base_address ]
+	add rsi, qword[ ScreenDimension.screen_size ]			; rsi = Buffer read from address + screen size
+	add rdi, qword[ BufferedOutputDesc.length ]			; rdi = Buffer base address + buffer length
 
-	add rcx, rdi								; Calculate the end of the visible screen
+	cmp rdi, rsi							; If Buffer base address + buffer length is smaller than Buffer read address + screen size
+	js .several_memcpy						; Then it needs several memcpys
 
-	.printLoop:
-		mov al, byte[ rsi ]						; Load one byte from buffer
-		add rsi, 1
+	pop rdi								; If not restore registers and perform single memcpy
+	pop rsi
+	memcpy qword[ ScreenDimension.base_address ], qword[ BufferedOutputDesc.readFrom_address ], qword[ ScreenDimension.screen_size ]
 
-		cmp al, CONSOLE_NEWLINE_CHAR
-		jz .linebreak							; Do linebreak
-
-		cmp al, CONSOLE_NEWCOLOR_CHAR
-		jz .selectNewColor
-
-		or al, al
-		jz .prep_done							; Ok no more to print
-
-		mov word[ rdi ], ax
-		add rdi, 2							; Select next cell on the screen
-
-		cmp rcx, rdi							; Already rached the end of the screen?
-		jbe .prep_done
-		jmp .printLoop							; Continue print loop
-
-	.selectNewColor:
-		mov ah, byte[ rsi ]						; Grab the new attributes from rsi
-		add rsi, 1
-
-		or ah, ah							; If ah is zero then probably there went something wrong with new new attributes
-		jz .prep_done							; it if far more probable that the zero is the terminating character of the string instead of
-										; the new black background with black foreground text arttributes
-
-		call SetTextAttributes						; Commit changes to the module
-
-		jmp .printLoop
-
-	.linebreak:
-
-		mov ebx, dword[ ScreenDimension.x_resolution ]
-		mov rax, rdi
-		add ebx, ebx							; x resolution * 2 = bytes per line on the screen
-		sub rax, qword[ ScreenDimension.base_address ]
-
-		xor edx, edx
-		add rdi, rbx
-		div ebx								; Calculate offset of write pointer to base and divide it by bytes per line
-
-		sub rdi, rdx							; In edx the remain of the division resides
-
-		mov ah, byte[ TextAttributes ]					; reload ah cause it got trashed earlier on
-
-		cmp rcx, rdi							; Reached end of the visible screen?
-		ja .printLoop
-
-
-	.prep_done:
-		pop rdx								; Restore registers
-		pop rbx
-		pop rcx
-		pop rsi
-		pop rax
-		pop rdi
-
-		ret
-
-	.just_memcpy:
-		; The buffer is already in the right format to get printed directly to the screen, so just perform a memcpy, because the size is a multiple of 8
-		; memcpy_size8 can be used
-		; There could be several problems: It is possible that the readfrom address needs to wrap around if the screen is divided
-		push rsi
-		push rdi
-		mov rsi, qword[ BufferedOutputDesc.readFrom_address ]
-		mov rdi, qword[ BufferedOutputDesc.base_address ]
-		add rsi, qword[ ScreenDimension.screen_size ]			; rsi = Buffer read from address + screen size
-		add rdi, qword[ BufferedOutputDesc.length ]			; rdi = Buffer base address + buffer length
-
-		cmp rdi, rsi							; If Buffer base address + buffer length is smaller than Buffer read address + screen size
-		js .several_memcpy						; Then it needs several memcpys
-
-		pop rdi								; If not restore registers and perform single memcpy
-		pop rsi
-		memcpy_size8 qword[ ScreenDimension.base_address ], qword[ BufferedOutputDesc.readFrom_address ], qword[ ScreenDimension.screen_size ]
-
-		ret
+	ret
 
 	.several_memcpy:
 
@@ -649,7 +638,7 @@ UpdateScreen:
 		add rax, rdi							; Calculate the offset for the nexxt memcpy
 
 
-		memcpy_size8 qword[ ScreenDimension.base_address ], qword[ BufferedOutputDesc.readFrom_address ], rcx
+		memcpy qword[ ScreenDimension.base_address ], qword[ BufferedOutputDesc.readFrom_address ], rcx, PH_LOAD_RDI | PH_LOAD_RSI | PH_SAVE_RCX
 
 		mov ebx, dword[ ScreenDimension.screen_size ]			; Get the screen size in ebx
 		sub ebx, ecx							; Subtract from the screen size the actually copied bytes and therefore get the
@@ -657,7 +646,7 @@ UpdateScreen:
 
 		mov ecx, ebx							; Move the bytes to copy in rcx
 
-		memcpy_size8 rax, qword[ BufferedOutputDesc.base_address ], rcx	; Perform second memcpy
+		memcpy rax, qword[ BufferedOutputDesc.base_address ], rcx, PH_LOAD_RDI | PH_LOAD_RSI | PH_SAVE_NO_REGS	; Perform second memcpy
 		pop rcx								; Restore registers
 		pop rbx
 		pop rax
@@ -688,35 +677,41 @@ SetTextAttributes:
 global SetBufferedOutputFlags
 ; IN: eax = flags
 SetBufferedOutputFlags:
-	push rbx							; Save rbx so that only eax is trashed at the end of the function
-	mov ebx, dword[ BufferedOutputDesc.flags ]
+	test eax, CF_BUFFERED_OUTPUT
+	jnz .handle_buffered_output
 
-	xor ebx, eax							; Will check if the flag CF_STAGE_IN_BUFFER_FOR_SCREEN has changed
-	test ebx, CF_STAGE_IN_BUFFER_FOR_SCREEN	
-	jz .contin							; If not just continue 
+	mov qword[ Console@64_PolymorphicList.scroll_screen ], ScrollScreen
+	mov qword[ Console@64_PolymorphicList.printf ], printf
+	mov qword[ Console@64_PolymorphicList.update_screen ], UpdateScreen
 
-	mov rbx, qword[ BufferedOutputDesc.base_address ]		; else reset the write and read pointer of the buffer because the store behavior of the functions will change
-	mov qword[ BufferedOutputDesc.writeTo_address ], rbx		; with that changed bit
-	mov qword[ BufferedOutputDesc.readFrom_address ], rbx
-
-
-	.contin:
-		pop rbx							; restore rbx
-		test eax, CF_BUFFERED_OUTPUT				; If the output should be buffered from now on check if there is a valid base address for the buffer
-		jnz .check_base
-
-	.set_flags:
+	.done_prepare:
 		mov dword[ BufferedOutputDesc.flags ], eax
-		xor eax, eax
 		ret
 
-	.check_base:
-		cmp dword[ BufferedOutputDesc.base_address ], 0			; Is there a valid base for buffered output?
-		jnz .set_flags						; Yes, continue function
+	.handle_buffered_output:
+		cmp qword[ BufferedOutputDesc.base_address ], 0
+		jz .err_no_base
 
-		mov eax, 1			; High possibility of error because the print functions will buffer there output in a not initialised buffer, so abort function
+		test eax, CF_STAGE_IN_BUFFER_FOR_SCREEN
+		jz .special_buffered_output
+
+		mov qword[ Console@64_PolymorphicList.scroll_screen ], ScrollBufferBase
+		mov qword[ Console@64_PolymorphicList.printf ], printf
+		mov qword[ Console@64_PolymorphicList.update_screen ], UpdateBufferedScreen
+
+		jmp .done_prepare
+
+
+	.special_buffered_output:
+		mov qword[ Console@64_PolymorphicList.scroll_screen ], ScrollScreen
+		mov qword[ Console@64_PolymorphicList.printf ], ScrollScreen
+		mov qword[ Console@64_PolymorphicList.update_screen ], ScrollScreen
+
+		jmp .done_prepare
+
+	.err_no_base:
+		mov eax, 1
 		ret
-
 
 ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ DATA SECTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -727,6 +722,7 @@ ScreenDimension:
 	.screen_size_shift8 dq (10)*25*2	; Screen length right shifted by 3
 	.base_address dq 0xb8000		; Default output is to the video buffer at address 0xb8000
 	.writeTo_address dq 0xb8000		; Store the position of the write pointer, only used if no buffer is specified
+	.bytes_per_line dq 80*2		; Store bytes per line
 
 TextAttributes dd COLOR_PAIR( COLOR_BLACK, COLOR_WHITE )
 AutoscrollBehave dd 0				; Autoscroll is off by default

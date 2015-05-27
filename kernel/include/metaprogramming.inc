@@ -16,289 +16,259 @@
 %endmacro
 
 
-%macro memset_isRShift3 3
-	%if %1 != rdi
-		push rdi
-	%endif
+%define PH_NONE 0
 
-	%if %2 != rax
-		push rax
-	%endif
+%define PH_SAVE_NO_REGS (1<<0)
+%define PH_SAVE_RAX (1<<8)
+%define PH_SAVE_RBX (1<<9)
+%define PH_SAVE_RCX (1<<10)
+%define PH_SAVE_RDX (1<<11)
+%define PH_SAVE_RSI (1<<12)
+%define PH_SAVE_RDI (1<<13)
 
-	%if %3 != rcx
-		push rcx
-	%endif
+%define PH_DIVIDABLE_8 (1<<14)
+%define PH_SHR_8 (1<<15) | PH_DIVIDABLE_8
+%define PH_DIVIDABLE_4 (1<<18)
+%define PH_LOAD_ALL (1<<16)
+%define PH_SAVE_ALL (1<<17)
 
-	%if %1 != rdi
-		mov rdi, %1
-	%endif
 
-	%if %3 != rcx
-		mov rcx, %3
-	%endif
-
-	%if %2 != rax
-		mov rax, %2
-	%endif
-
-	rep stosq
-
-	%if %3 != rcx
-		pop rcx
-	%endif
-
-	%if %2 != rax
-		pop rax
-	%endif
-
-	%if %1 != rdi
-		pop rdi
-	%endif
-%endmacro
+%define PH_LOAD_NO_REGS (1<<1)
+%define PH_LOAD_RAX (1<<2)
+%define PH_LOAD_RBX (1<<3)
+%define PH_LOAD_RCX (1<<4)
+%define PH_LOAD_RDX (1<<5)
+%define PH_LOAD_RSI (1<<6)
+%define PH_LOAD_RDI (1<<7)
 
 
 
-%macro memset_size8 3
-	%if (%3 % 8 ) = 0
-		memset_isRShift3 rdi, rax, (%3>>3)
-	%else
-		%if %1 != rdi
-			push rdi
+
+
+%macro memset 3-4 PH_NONE
+	%assign Hints (%4)
+		%if (Hints & PH_SAVE_NO_REGS ) = 0
+			%if Hints = PH_NONE
+				push rdi
+				push rax
+				push rcx
+			%elifn (Hints & PH_SAVE_ALL) = 0
+				push rdi
+				push rax
+				push rcx
+			%else
+				%ifn (Hints & PH_SAVE_RDI ) = 0
+					push rdi
+				%endif
+				%ifn (Hints & PH_SAVE_RAX ) = 0
+					push rax
+				%endif
+				%ifn (Hints & PH_SAVE_RCX ) = 0
+					push rcx
+				%endif
+			%endif
+		%endif
+		%if (Hints & PH_LOAD_NO_REGS) = 0
+			%if Hints = PH_NONE
+				mov rdi, %1
+				mov rcx, %3
+				mov rax, %2
+			%elifn (Hints & PH_LOAD_ALL ) = 0
+				mov rdi, %1
+				mov rcx, %3
+				mov rax, %2
+			%else
+				%ifn (Hints & PH_LOAD_RDI) = 0
+					mov rdi, %1
+				%endif
+				%ifn (Hints & PH_LOAD_RCX ) = 0
+					mov rcx, %3
+				%endif
+				%ifn (Hints & PH_LOAD_RAX ) = 0
+					mov rax, %2
+				%endif
+			%endif
 		%endif
 
-		%if %2 != rax
-			push rax
-		%endif
+		%ifn (Hints & PH_DIVIDABLE_8) = 0
+			%if (Hints & PH_SHR_8) = 0
+				shr rcx, 3
+			%endif
+			rep stosq
+		%elif ( Hints & PH_DIVIDABLE_4 ) = PH_DIVIDABLE_4
+			test cx, 0x7
+			jz %%shf84
 
-		%if %3 != rcx
-			push rcx
-		%endif
+			mov dword[ rdi ], eax
+			add rdi, 4
 
-		%if %1 != rdi
-			mov rdi, %1
-		%endif
-
-		%if %3 != rcx
-			mov rcx, %3
-		%endif
-
-		%if %2 != rax
-			mov rax, %2
-		%endif
-
-		shr rcx, 3
-		rep stosq
-
-		%if %3 != rcx
-			pop rcx
-		%endif
-
-		%if %2 != rax
-			pop rax
-		%endif
-
-		%if %1 != rdi
-			pop rdi
-		%endif
-	%endif
-%endmacro
-
-
-%macro memset 3
-	%if %1 != rdi
-		push rdi
-	%endif
-
-	%if %2 != rax
-		push rax
-	%endif
-
-	push rcx
-
-	%if %1 != rdi
-		mov rdi, %1
-	%endif
-
-	%if %3 != rcx
-		mov rcx, %3
-	%endif
-
-	%if %2 != rax
-		mov rax, %2
-	%endif
-
-	test ecx, 0x7
-	jz %%lc
-
-	and cx, 0x7
-
-	rep stosb
-
-	pop rcx
-	push rcx
-
-	%%lc:
-		and cx, 0xFFF8
-		shr rcx, 3
-		rep stosq
-
-	pop rcx
-
-	%if %2 != rax
-		pop rax
-	%endif
-
-	%if %1 != rdi
-		pop rdi
-	%endif
-%endmacro
-
-%macro memcpy_isRShift3 3
-	%if %1 != rdi
-		push rdi
-	%endif
-
-	%if %2 != rsi
-		push rsi
-	%endif
-
-	%if %3 != rcx
-		push rcx
-	%endif
-
-	%if %1 != rdi
-		mov rdi, %1
-	%endif
-
-	%if %3 != rcx
-		mov rcx, %3
-	%endif
-
-	%if %2 != rsi
-		mov rsi, %2
-	%endif
-
-	rep movsq
-
-	%if %3 != rcx
-		pop rcx
-	%endif
-
-	%if %2 != rsi
-		pop rsi
-	%endif
-
-	%if %1 != rdi
-		pop rdi
-	%endif
-%endmacro
-
-%macro memcpy_size8 3
-	%ifid %1
-		%if %1 = rdi
-			push rdi
-		%endif
-	%endif
-
-	%ifn %2 = rsi
-		push rsi
-	%endif
-
-	%ifn %3 = rcx
-		push rcx
-	%endif
-
-	%ifn %1 = rdi
-		mov rdi, %1
-	%endif
-
-	%ifn %3 = rcx
-		mov rcx, %3
-	%endif
-
-	%ifn %2 = rsi
-		mov rsi, %2
-	%endif
-
-	shr rcx, 3
-
-	rep movsq
-
-
-	%ifn %3 = rcx
-		pop rcx
-	%endif
-
-	%ifn %2 = rsi
-		pop rsi
-	%endif
-
-	%ifn %1 = rdi
-		pop rdi
-	%endif
-
-%endmacro
-
-%macro memcpy 3
-
-	%ifnum %3
-		%if (%3 % 8 ) = 0
-			memcpy_isRShift3 %1, %2, (%3>>3)
+			%%shf84:
+				shr rcx, 3
+				rep stosq
 		%else
-			push rcx
-			mov rcx, %3
-			memcpy %1, %2, rcx
+			test cx, 0x7
+			jz %%shf8
+
+			%ifn (Hints = PH_NONE)
+				%if (Hints & PH_SAVE_RCX) = 0
+					%if (Hints & PH_SAVE_ALL) = 0
+						push rcx
+					%endif
+				%endif
+			%endif
+
+			and rcx, 0x7
+			rep stosb
+
 			pop rcx
-		%endif
-	%else
 
-		%if %1 != rdi
-			push rdi
-		%endif
+			%if ((Hints = PH_NONE ) || (Hints & PH_SAVE_RCX) = PH_SAVE_RCX || (Hints & PH_SAVE_ALL) = PH_SAVE_ALL )
+				push rcx
+			%endif
 
-		%if %2 != rsi
-			push rsi
-		%endif
+			and ecx, 0xFFFFFFF8
 
-		push rcx
-
-		%if %1 != rdi
-			mov rdi, %1
+			%%shf8:
+				shr rcx, 3
+				rep stosq
 		%endif
 
-		%if %2 != rsi
-			mov rsi, %2
-		%endif
-
-		%if %3 != rcx
-			mov rcx, %3
-		%endif
-
-		test ecx, 0x7
-		jz %%lc
-
-		and cx, 0x7
-		rep movsb
-
-		pop rcx
-		push rcx
-
-		and cx, 0xFFF8
-
-		%%lc:
-			shr ecx, 3
-			rep movsq
-
-		pop rcx
-
-		%if %2 != rsi 
-			pop rsi
-		%endif
-	
-		%if %1 != rdi
+		%if Hints = PH_NONE
+			pop rcx
+			pop rax
 			pop rdi
+		%elifn (Hints & PH_SAVE_ALL ) = 0
+			pop rcx
+			pop rax
+			pop rdi
+		%else
+			%ifn (Hints & PH_SAVE_RDI ) = 0
+				pop rdi
+			%endif
+			%ifn (Hints & PH_SAVE_RAX ) = 0
+				pop rax
+			%endif
+			%ifn (Hints & PH_SAVE_RCX ) = 0
+				pop rcx
+			%endif
 		%endif
-	%endif
+%endmacro
+
+
+
+%macro memcpy 3-4 PH_NONE
+	%assign Hints (%4)
+		%if (Hints & PH_SAVE_NO_REGS ) = 0
+			%if Hints = PH_NONE
+				push rdi
+				push rsi
+				push rcx
+			%elifn (Hints & PH_SAVE_ALL) = 0
+				push rdi
+				push rsi
+				push rcx
+			%else
+				%ifn (Hints & PH_SAVE_RDI ) = 0
+					push rdi
+				%endif
+				%ifn (Hints & PH_SAVE_RSI ) = 0
+					push rsi
+				%endif
+				%ifn (Hints & PH_SAVE_RCX ) = 0
+					push rcx
+				%endif
+			%endif
+		%endif
+		%if (Hints & PH_LOAD_NO_REGS) = 0
+			%if Hints = PH_NONE
+				mov rdi, %1
+				mov rcx, %3
+				mov rsi, %2
+			%elifn (Hints & PH_LOAD_ALL ) = 0
+				mov rdi, %1
+				mov rcx, %3
+				mov rsi, %2
+			%else
+				%ifn (Hints & PH_LOAD_RDI) = 0
+					mov rdi, %1
+				%endif
+				%ifn (Hints & PH_LOAD_RCX ) = 0
+					mov rcx, %3
+				%endif
+				%ifn (Hints & PH_LOAD_RSI ) = 0
+					mov rsi, %2
+				%endif
+			%endif
+		%endif
+
+		%ifn (Hints & PH_DIVIDABLE_8) = 0
+			%if (Hints & PH_SHR_8) = 0
+				shr rcx, 3
+			%endif
+			rep movsq
+		%elif (Hints & PH_DIVIDABLE_4 ) = PH_DIVIDABLE_4
+		
+			test cx, 0x7
+			jz %%shf84
+
+			push rcx
+			mov ecx, dword[ rsi ]
+			mov dword[ rdi ], ecx
+			add rdi, 4
+			add rsi, 4
+			pop rcx
+
+			%%shf84:
+				shr rcx, 3
+				rep movsq
+		%else
+			test cx, 0x7
+			jz %%shf8
+
+			%ifn (Hints = PH_NONE)
+				%if (Hints & PH_SAVE_RCX) = 0
+					%if (Hints & PH_SAVE_ALL) = 0
+						push rcx
+					%endif
+				%endif
+			%endif
+
+			and rcx, 0x7
+			rep movsb
+
+			pop rcx
+
+			%if ((Hints = PH_NONE ) || (Hints & PH_SAVE_RCX) = PH_SAVE_RCX || (Hints & PH_SAVE_ALL) = PH_SAVE_ALL )
+				push rcx
+			%endif
+
+			and ecx, 0xFFFFFFF8
+
+			%%shf8:
+				shr rcx, 3
+				rep movsq
+
+		%endif
+
+		%if Hints = PH_NONE
+			pop rcx
+			pop rsi
+			pop rdi
+		%elifn (Hints & PH_SAVE_ALL ) = 0
+			pop rcx
+			pop rsi
+			pop rdi
+		%else
+			%ifn (Hints & PH_SAVE_RDI ) = 0
+				pop rdi
+			%endif
+			%ifn (Hints & PH_SAVE_RSI ) = 0
+				pop rsi
+			%endif
+			%ifn (Hints & PH_SAVE_RCX ) = 0
+				pop rcx
+			%endif
+		%endif
 %endmacro
 
 %endif
