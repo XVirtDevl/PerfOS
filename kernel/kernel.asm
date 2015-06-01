@@ -191,6 +191,13 @@ LongMode:
 	mov ss, ax
 	mov gs, ax
 
+	mov edi, dword[ 0x8028 ]
+	mov rax, 0x0909090909090909
+	mov ecx, 1000
+	rep stosq
+
+	jmp $
+
 	CSetTextAttributes COLOR_PAIR( COLOR_BLACK, COLOR_WHITE )
 
 	CClearScreen

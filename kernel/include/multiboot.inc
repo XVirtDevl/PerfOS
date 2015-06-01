@@ -9,9 +9,17 @@ struc multiboot
 	.sys resd 4
 	.mmap_length resd 1
 	.mmap_addr resd 1
-	.gdtr_addr resd 1
-	.idtr_addr resd 1
-	.entry_pt resd 1
+	.drives_length resd 1
+	.drives_addr resd 1
+	.config_table resd 1
+	.bootloader_name resd 1
+	.apm_table resd 1
+	.vbe_ctrl_info resd 1
+	.vbe_mode_info resd 1
+	.vbe_mode resw 1
+	.vbe_interface_seg resw 1
+	.vbe_interface_off resw 1
+	.vbe_interface_len resw 1
 endstruc
 
 
