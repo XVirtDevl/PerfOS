@@ -3,11 +3,11 @@
 GUARDED_INCLUDE GUARDED_EXPORT_GRAPHIC_VGA, "graphic.inc"
 
 PolymorphicFunctionList:
-	db times GraphicFunctionality_size db 0
+	times GraphicFunctionality_size db 0
 
 global InitialiseVGADriver
 InitialiseVGADriver:
-	db ret
+	ret
 
 
 

@@ -16,13 +16,15 @@ endstruc
 %endmacro
 
 
-	%ifndef GUARED_EXPORT_GRAPHIC_VBE
-	%define GUARED_EXPORT_GRAPHIC_VBE
+	%ifndef GUARDED_EXPORT_GRAPHIC_VBE
+	%define GUARDED_EXPORT_GRAPHIC_VBE
 		extern InitialiseVBEDriver
+		extern SetVBEDriverAsGraphicDriver
+		extern DrawChar
 	%endif
 	
-	%ifndef GUARED_EXPORT_GRAPHIC_VGA
-	%define GUARED_EXPORT_GRAPHIC_VGA
+	%ifndef GUARDED_EXPORT_GRAPHIC_VGA
+	%define GUARDED_EXPORT_GRAPHIC_VGA
 		extern InitialiseVGADriver
 		extern Font8X8BIOS
 	%endif
