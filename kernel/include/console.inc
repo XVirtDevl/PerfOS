@@ -1,10 +1,10 @@
-%include "debug.inc"
+%include "meta/debug.inc"
 
 
 %ifndef CONSOLE_EXPORT_FUNCTIONALITY
 %define CONSOLE_EXPORT_FUNCTIONALITY
 
-%include "metaprogramming.inc"
+%include "meta/metaprogramming.inc"
 
 %xdefine MODULE_NAME CONSOLE
 

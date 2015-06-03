@@ -1,0 +1,7 @@
+nasm -f elf64 -e ./kernel/kernel.asm -i ./kernel/include/
+read
+nasm -f bin -e ./boot/mbr.asm -i ./kernel/include/
+read
+nasm -f elf64 -e ./kernel/console/console.asm -i ./kernel/include/
+read
+

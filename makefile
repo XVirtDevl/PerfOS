@@ -8,7 +8,6 @@ ld -z max-page-size=0x1000 -nostdlib -m elf_x86_64 -T ./kernel/link.ld -o ./bin/
 cat ./bin/kernel.bin >> ./bin/bootloader.bin
 ./appender ./bin/bootloader.bin ./bin/bootloader.bin
 rm ./bin/console.elf
-rm ./bin/kernel.elf
 rm ./bin/driver_list.elf
 rm ./bin/vbe_driver.elf
 rm ./bin/vga_driver.elf

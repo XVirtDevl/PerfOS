@@ -1,4 +1,4 @@
-%include "metaprogramming.inc"
+%include "meta/metaprogramming.inc"
 
 GUARDED_INCLUDE CONSOLE_EXPORT_FUNCTIONALITY, "console.inc"	; Include the file "console.inc". But exclude the ifdef CONSOLE_EXPORT_FUNCTIONALITY Block
 

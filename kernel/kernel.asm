@@ -4,6 +4,7 @@
 %include "console.inc"
 %include "multiboot.inc"
 %include "graphic.inc"
+%include "meta/stack.inc"
 
 section multiboot
 align 4
@@ -182,6 +183,12 @@ InitialisePaging:
 		mov cr3, eax
 		ret				;Identity Mapped First GB
 
+struc MyShit
+	.hello resq 1
+	.string resq 1
+	.length resq 1
+endstruc
+
 align 8
 [BITS 64]
 LongMode:
@@ -191,6 +198,17 @@ LongMode:
 	mov fs, ax
 	mov ss, ax
 	mov gs, ax
+
+	CREATE_STACK MyStack
+
+
+	RESERVE_STACK_SPACE MyInst, MyShit_size
+	RESERVE_STACK_SPACE SecInst, 200
+
+	sub_ss MyInst, rax, MyShit.string
+
+
+	DESTROY_STACK MyStack
 
 	mov edi, 0x8000
 	call InitialiseVBEDriver

@@ -1,4 +1,4 @@
-%include "metaprogramming.inc"
+%include "meta/metaprogramming.inc"
 
 GUARDED_INCLUDE _STDKERNEL_EXPORT_, "StdDriverList.inc"
 
