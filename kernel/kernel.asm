@@ -205,8 +205,12 @@ LongMode:
 	RESERVE_STACK_SPACE MyInst, MyShit_size
 	RESERVE_STACK_SPACE SecInst, 200
 
-	sub_ss MyInst, rax, MyShit.string
+	ASSIGN_SPACE_STRUC MyInst, MyShit
+	ASSIGN_SPACE_STRUC SecInst, MyShit
 
+
+	lea_s SecInst.string, MyInst.length
+	mov_s MyInst.length, rax
 
 	DESTROY_STACK MyStack
 
