@@ -6,19 +6,21 @@ align 8
 PolymorphicFunctionList:
 	times GraphicFunctionality_size db 0 
 
-
 global DrawChar
 ; al = char
 DrawChar:
-	mov edi, dword[ video_mode_desc.lfb_address ]
-	add edi, dword[ video_mode_desc.bytes_per_scanline ]
-	add edi, dword[ video_mode_desc.bytes_per_scanline ]
-	add edi, 400
-	mov rsi, Font8X8BIOS + 67 *8
+	mov edi, dword[ driver_settings.draw_address ]
+	add dword[ driver_settings.draw_address ], 8
+
+	shl rax, 3
+	mov rsi, Font8X8BIOS
+	add rsi, rax
+	mov r8, rsi
+	add r8, 8
+	
 
 	mov rbx, 0x0909090909090909
-	mov rcx, 0x0F0F0F0F0F0F0F0F
-	
+	xor rcx, rcx	
 	.drawLoop:
 		push rbx
 		push rcx
@@ -36,11 +38,59 @@ DrawChar:
 		pop rcx
 		pop rbx
 
-		cmp rsi, Font8X8BIOS + 68*8
+		cmp rsi, r8
 		jz .done
 		jmp .drawLoop
 	.done:
-		jmp $
+		ret
+
+BreakLine:
+	mov eax, dword[ driver_settings.draw_address ]
+	mov ebx, dword[ video_mode_desc.bytes_per_scanline ]
+	shl ebx, 3
+	mov edi, eax
+	sub eax, dword[ video_mode_desc.lfb_address ]
+	add edi, ebx
+
+	xor edx, edx
+	div ebx
+
+	not edx
+	add edx, 1
+	add edi, edx
+	mov dword[ driver_settings.draw_address ], edi
+	ret
+
+	
+	
+	
+global DrawString
+;esi = string
+DrawString:
+	xor eax, eax
+
+	.looped:
+		mov al, byte[ esi ]
+	
+		or al, al
+		jz .done
+	
+		cmp al, 0xA
+		jz .newline
+
+		push rsi
+		call DrawChar
+		pop rsi
+		add esi, 1
+		jmp .looped
+
+	.newline:
+		add esi, 1
+		call BreakLine
+		jmp .looped
+
+	.done:
+		ret
 	
 
 global InitialiseVBEDriver
@@ -56,13 +106,15 @@ InitialiseVBEDriver:
 	mov bx, word[ edi + 0x12 ]		; X Resolution
 	mov cx, word[ edi + 0x14 ]		; Y Resolution
 	movzx dx, byte[ edi + 0x19 ]
-	mov si, word[ edi + 0x10 ]
+	movzx esi, word[ edi + 0x10 ]
 	
-	mov dword[ video_mode_desc.lfb_address ], eax	
+	mov dword[ video_mode_desc.lfb_address ], eax
+	add eax, esi	
 	mov word[ video_mode_desc.bytes_per_scanline ], si
 	mov word[ video_mode_desc.x_resolution_pixel ], bx
 	mov word[ video_mode_desc.y_resolution_pixel ], cx
 	mov word[ video_mode_desc.bits_per_pixel ], dx
+	mov dword[ driver_settings.draw_address ], eax
 
 	xor cl, cl
 	xor rax, rax
@@ -84,7 +136,7 @@ InitialiseVBEDriver:
 		mov rdx, 0xFF
 		mov bl, 1
 		add cl, 1
-		jno .BuildTable
+		jnz .BuildTable
 
 	pop rdx
 	pop rcx
@@ -105,11 +157,12 @@ SetVBEDriverAsGraphicDriver:
 driver_settings:
 	.font_size_x dq 8
 	.font_size_y dq 8
+	.draw_address dq 0
+
 video_mode_desc:
 	.bytes_per_scanline dq 0
 	.x_resolution_pixel dq 0
 	.y_resolution_pixel dq 0
 	.lfb_address dq 0
 	.bits_per_pixel dq 0
-section .bss
-	BitsPerPixel8Mask resq 256
+BitsPerPixel8Mask resq 256

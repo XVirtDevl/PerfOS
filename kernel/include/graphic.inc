@@ -21,6 +21,7 @@ endstruc
 		extern InitialiseVBEDriver
 		extern SetVBEDriverAsGraphicDriver
 		extern DrawChar
+		extern DrawString
 	%endif
 	
 	%ifndef GUARDED_EXPORT_GRAPHIC_VGA

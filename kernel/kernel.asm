@@ -221,7 +221,12 @@ LongMode:
 	mov edi, 0x8000
 	call InitialiseVBEDriver
 
-	call DrawChar
+	mov esi, TestSentence
+	call DrawString
+
+	mov esi, TestSentence
+	call DrawString
+
 
 	jmp $
 
