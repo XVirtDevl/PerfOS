@@ -189,6 +189,14 @@ struc MyShit
 	.length resq 1
 endstruc
 
+%macro MyShit 1-*
+	%rep %0
+		REGISTER_STRUC MyShit, %1
+		%rotate 1
+	%endrep
+%endmacro
+
+
 align 8
 [BITS 64]
 LongMode:
@@ -202,18 +210,10 @@ LongMode:
 	CREATE_STACK MyStack
 
 
-	RESERVE_STACK_SPACE MyInst, MyShit_size
-	RESERVE_STACK_SPACE SecInst, 200
+	MyShit MyInst, MySecInst
 
-	ASSIGN_SPACE_STRUC MyInst, MyShit
-	ASSIGN_SPACE_STRUC SecInst, MyShit
+	mov_s qword[ MyInst.length ], rax
 
-
-	lea_s SecInst.string, MyInst.length
-	mov_s MyInst.length, rax
-
-
-	SEARCH_REPLACE_STACK qword[ MyInst ][
 
 	DESTROY_STACK MyStack
 

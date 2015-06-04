@@ -1,6 +1,11 @@
 %ifndef _METAPROGRAMMING_STACK_INC_
 %define _METAPROGRAMMING_STACK_INC_
 
+
+%macro REGISTER_STRUC 2
+	RESERVE_STACK_SPACE %2, %1_size
+	ASSIGN_SPACE_STRUC %2, %1
+%endmacro
 %macro CREATE_STACK 1
 	%push %1
 	push rbp
@@ -106,65 +111,37 @@
 %endmacro
 
 
-%macro sub_s 2-3
-	mac_pattern sub, %{1:-1}
+%macro sub_s 2
+	mac_pattern sub, %1, %2
 %endmacro
 
-%macro add_s 2-3
-	mac_pattern add, %{1:-1}
+%macro add_s 2
+	mac_pattern add, %1, %2
 %endmacro
 
-%macro mov_s 2-3
-	mac_pattern mov, %{1:-1}
+%macro mov_s 2
+	mac_pattern mov, %1, %2
 %endmacro
 
-%macro mac_pattern 3-4
-		%macro intern_%1_s 4-5
+%macro mac_pattern 3
+		%macro intern_%1_s 3
 			APPLY_STACK_CHANGE
-			%if %0 = 4
-				%xdefine OFFSET 0
-			%else
-				%xdefine OFFSET %5
-			%endif
-		
-			HasPoint %2
-			%xdefine VARIABLE0 %2		
-	
-			%if HAS_POINT = 1
-				DivideStrings %2, VARIABLE0, CLASS0
-				%xdefine STRUCTURE0 %$STRUC_ %+ VARIABLE0
-				%xdefine OFFSET (OFFSET + (STRUCTURE0 %+ . %+ CLASS0))
-			%endif
-	
-			IFDEF %4, VARIABLE0
-			%if IS_DEFINED = 1
-				%1 [rbp - (%$ %+ VARIABLE0) + OFFSET ], %3
-			%else
-				HasPoint %3
-				%xdefine VARIABLE1 %3
-				%if HAS_POINT = 1
-					DivideStrings %3, VARIABLE1, CLASS1
-					%xdefine STRUCTURE1 %$STRUC_ %+ VARIABLE1
-					%xdefine OFFSET (OFFSET + (STRUCTURE1 %+ . %+ CLASS1))
-				%endif
-				%1 %2, [rbp - (%$ %+ VARIABLE1) + OFFSET ]
-			%endif
-		%endmacro
+			SEARCH_REPLACE_STACK %2
+			%deftok ENDTOK1 EndStr
+			SEARCH_REPLACE_STACK %3
+			%deftok ENDTOK2 EndStr
 
-	%if %0 = 4
-		intern_%1_s  %1, %2, %3, %$STACK_NAME, %4
-	%else
-		intern_%1_s %1, %2, %3, %$STACK_NAME
-	%endif
-		%unmacro intern_%1_s 4-5
-		%undef %2
-		%undef %3
+			%1 ENDTOK1, ENDTOK2
+		%endmacro
+		intern_%1_s %1, %2, %3
+		%unmacro intern_%1_s 3
 %endmacro
+
 
 %macro SEARCH_REPLACE_STACK 1
 	%defstr thisStr %1
+	%define EndStr thisStr
 	%xdefine countStart 1
-	%xdefine countEnd 0
 	%xdefine semiCounter 1
 	%xdefine NEED_CHANGE 0
 	CUT_WHITESPACES thisStr
@@ -180,29 +157,29 @@
 			%xdefine NEED_CHANGE 1
 		%endif
 	
+		%if mypoint = '+'
+			%xdefine NEED_CHANGE 1
+		%endif
+	
+		%if mypoint = '-'
+			%xdefine NEED_CHANGE 1
+		%endif
+	
 
 		%if NEED_CHANGE = 1
-			%warning mypoint
 			%xdefine NEED_CHANGE 0
-			%if countStart = 1
-				%xdefine countEnd semiCounter
-			%else
-				%xdefine countEnd semiCounter-1
-			%endif
-			%substr CheckStr thisStr countStart, (countEnd-countStart)
+			%substr CheckStr thisStr countStart, (semiCounter-countStart)
 			%deftok CheckTok CheckStr
-			%warning CheckTok
 			CHECK_AND_REPLACE %$STACK_NAME, CheckTok
 			%ifdef REPLACE
 				%substr EndStr thisStr 1, countStart-1
 				%strcat EndStr EndStr, REPLACE_STR
-				%substr next thisStr countEnd,(charcnt-countEnd)
+				%substr next thisStr semiCounter,charcnt
 				%strcat EndStr EndStr, next
-				%warning Endauswahl: EndStr
 			%endif
-			%xdefine countStart semiCounter+1
+			%xdefine countStart (semiCounter+1)
 		%endif
-		%xdefine semiCounter semiCounter+1
+		%xdefine semiCounter (semiCounter+1)
 	%endrep
 %endmacro
 
@@ -210,10 +187,25 @@
 	%ifdef %1_%2
 		%xdefine REPLACE rbp - (%$%2)
 		%defstr REPLACE_STR REPLACE
-		%warning %1_%2
 	%else
-		%undef REPLACE
-		%undef REPLACE_STR
+		%xdefine OFFSET1 0
+		HasPoint %2
+		%xdefine VARIABLE1 %2
+		%if HAS_POINT = 1
+			DivideStrings %2, VARIABLE1, CLASS1
+			%xdefine STRUCTURE1 %$STRUC_ %+ VARIABLE1
+			%xdefine OFFSET1 (STRUCTURE1 %+ . %+ CLASS1)
+		%endif
+
+		IFDEF %1, VARIABLE1
+		%if IS_DEFINED = 1
+			%xdefine REPLACE rbp - (%$ %+ VARIABLE1) + OFFSET1
+			%defstr REPLACE_STR REPLACE
+			%undef %2
+		%else
+			%undef REPLACE
+			%undef REPLACE_STR
+		%endif
 	%endif
 	
 %endmacro
@@ -240,12 +232,12 @@
 %endmacro
 
 %macro HasPoint 1
-	%defstr thisStr %1
+	%defstr KthisStr %1
 	%xdefine counter 1
-	%strlen charcnt thisStr
+	%strlen charcnt KthisStr
 	%xdefine HAS_POINT 0
 	%rep charcnt
-		%substr mypoint thisStr counter
+		%substr mypoint KthisStr counter
 		%if mypoint = '.'
 			%xdefine HAS_POINT 1
 		%endif
@@ -254,14 +246,14 @@
 %endmacro
 
 %macro DivideStrings 3
-	%defstr thisStr %1
+	%defstr KthisStr %1
 	%xdefine counter 1
-	%strlen charcnt thisStr
+	%strlen charcnt KthisStr
 	%rep charcnt
-		%substr mypoint thisStr counter
+		%substr mypoint KthisStr counter
 		%if mypoint = '.'
-			%substr STR0 thisStr 1, counter-1
-			%substr STR1 thisStr counter+1, charcnt
+			%substr STR0 KthisStr 1, counter-1
+			%substr STR1 KthisStr counter+1, charcnt
 			%deftok %2 STR0
 			%deftok %3 STR1
 		%endif
