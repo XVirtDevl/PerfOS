@@ -161,6 +161,76 @@
 		%undef %3
 %endmacro
 
+%macro SEARCH_REPLACE_STACK 1
+	%defstr thisStr %1
+	%xdefine countStart 1
+	%xdefine countEnd 0
+	%xdefine semiCounter 1
+	%xdefine NEED_CHANGE 0
+	CUT_WHITESPACES thisStr
+	%define thisStr NewStr
+	%strlen charcnt thisStr
+	%rep charcnt
+		%substr mypoint thisStr semiCounter
+		%if mypoint = '['
+			%xdefine NEED_CHANGE 1
+		%endif
+
+		%if mypoint = ']'
+			%xdefine NEED_CHANGE 1
+		%endif
+	
+
+		%if NEED_CHANGE = 1
+			%warning mypoint
+			%xdefine NEED_CHANGE 0
+			%if countStart = 1
+				%xdefine countEnd semiCounter
+			%else
+				%xdefine countEnd semiCounter-1
+			%endif
+			%substr CheckStr thisStr countStart, (countEnd-countStart)
+			%deftok CheckTok CheckStr
+			%warning CheckTok
+			CHECK_AND_REPLACE %$STACK_NAME, CheckTok
+			%ifdef REPLACE
+				%substr EndStr thisStr 1, countStart-1
+				%strcat EndStr EndStr, REPLACE_STR
+				%substr next thisStr countEnd,(charcnt-countEnd)
+				%strcat EndStr EndStr, next
+				%warning Endauswahl: EndStr
+			%endif
+			%xdefine countStart semiCounter+1
+		%endif
+		%xdefine semiCounter semiCounter+1
+	%endrep
+%endmacro
+
+%macro CHECK_AND_REPLACE 2
+	%ifdef %1_%2
+		%xdefine REPLACE rbp - (%$%2)
+		%defstr REPLACE_STR REPLACE
+		%warning %1_%2
+	%else
+		%undef REPLACE
+		%undef REPLACE_STR
+	%endif
+	
+%endmacro
+
+%macro CUT_WHITESPACES 1
+	%strlen CHAR_WHITE %1
+	%define NewStr ''
+	%xdefine counter_white 1
+	%rep CHAR_WHITE
+		%substr mypoint %1 counter_white
+		%ifn mypoint = ' '
+			%strcat NewStr NewStr, mypoint
+		%endif
+		%xdefine counter_white counter_white+1
+	%endrep
+%endmacro
+
 %macro IFDEF 2
 	%ifdef %1_%2
 		%xdefine IS_DEFINED 1

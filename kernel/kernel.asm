@@ -212,7 +212,11 @@ LongMode:
 	lea_s SecInst.string, MyInst.length
 	mov_s MyInst.length, rax
 
+
+	SEARCH_REPLACE_STACK qword[ MyInst ][
+
 	DESTROY_STACK MyStack
+
 
 	mov edi, 0x8000
 	call InitialiseVBEDriver
