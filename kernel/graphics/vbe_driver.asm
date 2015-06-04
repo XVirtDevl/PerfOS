@@ -165,4 +165,5 @@ video_mode_desc:
 	.y_resolution_pixel dq 0
 	.lfb_address dq 0
 	.bits_per_pixel dq 0
+section .bss
 BitsPerPixel8Mask resq 256
