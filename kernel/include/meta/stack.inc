@@ -2,10 +2,24 @@
 %define _METAPROGRAMMING_STACK_INC_
 
 
-%macro REGISTER_STRUC 2
+%macro REGISTER_STRUC 3
 	RESERVE_STACK_SPACE %2, %1_size
 	ASSIGN_SPACE_STRUC %2, %1
+	%if %0 = 3
+		REGISTER_DESTRUCTOR %$STACK_NAME, %2, %3
+	%endif
 %endmacro
+
+%macro REGISTER_DESTRUCTOR 3
+	%define %1_%2_DESTRUCTOR %3
+	%ifndef %1_DESTRUCTOR_LIST
+		%xdefine %1_DESTRUCTOR_LIST CALL_DESTRUCTORS %2
+	%else
+		%xdefine %1_DESTRUCTOR_LIST %1_DESTRUCTOR_LIST, %2
+	%endif
+%endmacro
+
+
 %macro CREATE_STACK 1
 	%push %1
 	push rbp
@@ -261,7 +275,27 @@
 	%endrep
 %endmacro
 
+%macro CALL_DESTRUCTORS 0-*	
+	%rep %0
+		lea_s rcx, %1
+		CALL_DST %$STACK_NAME, %1
+		%rotate 1
+	%endrep
+%endmacro
+
+%macro CALL_DST 2
+	%ifmacro %1_%2_DESTRUCTOR
+		%1_%2_DESTRUCTOR rcx
+	%else
+		call %1_%2_DESTRUCTOR
+	%endif
+%endmacro
+
 %macro DESTROY_STACK 1
+	%ifdef %1_DESTRUCTOR_LIST
+		%1_DESTRUCTOR_LIST
+	%endif
+
 	%pop %1
 	%undef STACK_%1
 	mov rsp, rbp

@@ -191,10 +191,13 @@ endstruc
 
 %macro MyShit 1-*
 	%rep %0
-		REGISTER_STRUC MyShit, %1
+		REGISTER_STRUC MyShit, %1, MyFunction
 		%rotate 1
 	%endrep
 %endmacro
+
+MyFunction:
+	jmp $
 
 
 align 8
@@ -210,7 +213,7 @@ LongMode:
 	CREATE_STACK MyStack
 
 
-	MyShit MyInst, MySecInst
+	MyShit MyInst, MySecInst, MyThirdInst, MyFourthInst
 
 	mov_s qword[ MyInst.length ], rax
 
