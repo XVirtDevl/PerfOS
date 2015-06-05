@@ -19,7 +19,6 @@ extern kernel_start
 extern kernel_end
 
 %define BOOTUP_PML4_ADDR 0x300000
-
 [BITS 32]
 section .text
 global _start
@@ -71,6 +70,8 @@ _start:
 	mov dword[ GDT_BASE + 16 ], eax
 	mov dword[ GDT_BASE + 24 ], eax
 	mov dword[ GDT_BASE + 32 ], eax
+	mov dword[ GDT_BASE + 40 ], eax
+	mov dword[ GDT_BASE + 48 ], eax
 
 	mov eax, 0x00CF9A00	
 	mov dword[ GDT_BASE + 12 ], eax		;Code Segment 32-bit offset: 0x8
@@ -82,6 +83,11 @@ _start:
 	mov dword[ GDT_BASE + 28 ], eax		;Code Segment 64-bit offset: 0x18
 	and eax, 0xFFFFF7FF
 	mov dword[ GDT_BASE + 36 ], eax		;Data Segment 64-bit offset: 0x20
+
+	mov eax, 0x00F9A00
+	mov dword[ GDT_BASE + 44 ], eax		;Code Segment 16-bit offset: 0x28
+	and eax, 0xFFFFF7FF
+	mov dword[ GDT_BASE + 52 ], eax		;Data Segment 16-bit offset: 0x30
 
 	lgdt[ gdt_limit ]
 	jmp 0x8:_OwnGDT	
@@ -136,7 +142,7 @@ align 8
 
 		jmp 0x18:LongMode	; Enter long mode
 
-	
+
 InitialisePaging:
 		mov edi, BOOTUP_PML4_ADDR	; Create the first paging structures at the BOOTUP_PML4_ADDR which is currently at 3MB
 		xor eax, eax			; Clear all memory used to avoid possible unwanted pages
@@ -197,8 +203,7 @@ endstruc
 %endmacro
 
 MyFunction:
-	jmp $
-
+	ret
 
 align 8
 [BITS 64]
@@ -209,29 +214,6 @@ LongMode:
 	mov fs, ax
 	mov ss, ax
 	mov gs, ax
-
-	CREATE_STACK MyStack
-
-
-	MyShit MyInst, MySecInst, MyThirdInst, MyFourthInst
-
-	mov_s qword[ MyInst.length ], rax
-
-
-	DESTROY_STACK MyStack
-
-
-	mov edi, 0x8000
-	call InitialiseVBEDriver
-
-	mov esi, TestSentence
-	call DrawString
-
-	mov esi, TestSentence
-	call DrawString
-
-
-	jmp $
 
 	CSetTextAttributes COLOR_PAIR( COLOR_BLACK, COLOR_WHITE )
 
